@@ -7,6 +7,6 @@ console.log({
   currentMonthExpensesCents: data.currentMonthExpensesCents,
   previousMonthExpensesCents: data.previousMonthExpensesCents,
   monthComparisonCents: data.monthComparisonCents,
-  goalCurrentCents: data.goal.currentCents,
-  goalProgress: data.goal.progress,
+  goalCurrentCents: data.goal?.currentCents ?? 0,
+  goalProgress: data.goal?.progress ?? 0,
 });

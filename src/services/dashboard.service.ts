@@ -7,6 +7,7 @@ import { profilesMock } from '@/data/mocks/profile.mock';
 import { mockScenario } from '@/data/mocks/scenario.mock';
 import { transactionsMock } from '@/data/mocks/transactions.mock';
 import { Transaction } from '@/types';
+import { processRecurrences } from '@/services/recurrence.service';
 
 function getMonthKey(date: string) {
   return date.slice(0, 7);
@@ -36,6 +37,7 @@ function compareTransactionsByDateDesc(
 }
 
 export function getDashboardData() {
+  processRecurrences();
   const profile = profilesMock.find(
     (item) =>
       item.id === mockScenario.activeProfileId
@@ -100,13 +102,13 @@ export function getDashboardData() {
       0
     );
 
-  const expensesByCategory = categoriesMock
+  const expensesByCategory = [...categoriesMock, { id: 'uncategorized', name: 'Sem categoria' }]
     .map((category) => {
       const totalCents = activeTransactions
         .filter(
           (transaction) =>
             transaction.type === 'expense' &&
-            transaction.categoryId ===
+            (transaction.categoryId ?? 'uncategorized') ===
               category.id &&
             getMonthKey(transaction.date) ===
               currentMonthKey
@@ -129,23 +131,19 @@ export function getDashboardData() {
         b.totalCents - a.totalCents
     );
 
-  const goal = goalsMock[0];
+  const goal = goalsMock.find((item) => item.profileId === profile.id);
 
-  if (!goal) {
-    throw new Error('Meta mock não encontrada.');
-  }
-
-  const goalCurrentCents =
-    goalContributionsMock
+  const goalCurrentCents = goal
+    ? goalContributionsMock
       .filter(
         (contribution) =>
-          contribution.goalId === goal.id
+          contribution.goalId === goal.id && contribution.profileId === profile.id
       )
       .reduce(
         (total, contribution) =>
           total + contribution.amountCents,
         0
-      );
+      ) : 0;
 
   const recentTransactions =
     [...activeTransactions]
@@ -187,7 +185,7 @@ export function getDashboardData() {
 
     expensesByCategory,
 
-    goal: {
+    goal: goal ? {
       id: goal.id,
       name: goal.name,
       targetCents: goal.targetCents,
@@ -198,7 +196,7 @@ export function getDashboardData() {
           ? 0
           : goalCurrentCents /
             goal.targetCents,
-    },
+    } : null,
 
     recentTransactions,
   };

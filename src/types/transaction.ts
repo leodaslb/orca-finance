@@ -19,6 +19,14 @@ export type PaymentMethod =
   | 'bank_transfer'
   | 'other';
 
+export interface RecurrenceConfiguration {
+  recurring: boolean;
+  frequency: 'monthly';
+  nextOccurrence: string | null;
+  reminder: boolean;
+  dueDate: string | null;
+}
+
 export interface Transaction {
   id: string;
   profileId: string;
@@ -43,6 +51,9 @@ export interface Transaction {
 
   receiptUri: string | null;
 
+  freeSpending?: boolean;
+  recurrenceId?: string | null;
+
   status: TransactionStatus;
 }
 
@@ -55,7 +66,7 @@ export interface CreateTransactionInput {
 
   description: string;
 
-  categoryId: string;
+  categoryId: string | null;
   subcategoryId?: string | null;
 
   paymentMethod?: PaymentMethod | null;
@@ -66,4 +77,5 @@ export interface CreateTransactionInput {
   essentiality?: Essentiality | null;
 
   receiptUri?: string | null;
+  freeSpending?: boolean;
 }

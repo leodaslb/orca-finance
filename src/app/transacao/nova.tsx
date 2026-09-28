@@ -8,7 +8,8 @@ import { IconArrowLeft, } from '@tabler/icons-react-native';
 
 import { TransactionForm, } from '@/components/domain/TransactionForm';
 
-import { createTransaction } from '@/services/transaction.service';
+import { createTransactionWithRecurrence } from '@/services/recurrence.service';
+import { placeInReflection } from '@/services/reflection.service';
 import { colors, fontFamily, fontSize, spacing, } from '@/theme';
 
 export default function NovaTransacaoScreen() {
@@ -28,6 +29,8 @@ export default function NovaTransacaoScreen() {
       >
         <View style={styles.header}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
             onPress={() => {
                 if (router.canGoBack()) {
                   router.back();
@@ -57,9 +60,13 @@ export default function NovaTransacaoScreen() {
 
 
         <TransactionForm
-          onSubmit={(input) => {
+          onPlaceInReflection={(input, durationHours, recurrence) => {
+            placeInReflection(input, durationHours, new Date(), recurrence);
+            router.replace('/reflexao');
+          }}
+          onSubmit={(input, recurrence) => {
             const created =
-              createTransaction(input);
+              createTransactionWithRecurrence(input, recurrence);
 
             router.replace({
               pathname: '/transacao/[id]',

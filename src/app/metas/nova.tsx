@@ -26,7 +26,7 @@ import {
 import type { GoalSuggestionFrequency } from '@/types';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
 import { formatCurrency, parseCurrencyToCents } from '@/utils/currency';
-import { parseBrazilianDateToISO } from '@/utils/date';
+import { formatDateInput, parseBrazilianDateToISO } from '@/utils/date';
 
 export default function NewGoalScreen() {
   const router = useRouter();
@@ -89,7 +89,7 @@ export default function NewGoalScreen() {
         <Text style={styles.label}>Data limite</Text>
         <View style={styles.inputWithIcon}>
           <IconCalendar size={22} color={colors.navInactive} />
-          <TextInput value={deadline} onChangeText={setDeadline}
+          <TextInput value={deadline} onChangeText={(text) => setDeadline(formatDateInput(text))}
             placeholder="DD/MM/AAAA" placeholderTextColor={colors.navInactive}
             keyboardType="number-pad" maxLength={10} style={styles.iconInput} />
         </View>

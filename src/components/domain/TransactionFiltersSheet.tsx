@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function TransactionFiltersSheet({ visible, onCancel, onApply, onClear }: Props) {
-  // TXR-08: aplicar/limpar aguardam um modelo aprovado de filtros.
+  // RF13/US03: controles de filtros avançados ainda não implementados.
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
       <View style={styles.overlay}>

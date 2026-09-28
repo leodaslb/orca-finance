@@ -32,6 +32,8 @@ const transactionService = load('src/services/transaction.service.ts');
 const planningService = load('src/services/planning.service.ts');
 const { getDashboardData } = load('src/services/dashboard.service.ts');
 const { subcategoriesMock } = load('src/data/mocks/categories.mock.ts');
+const { transactionsMock } = load('src/data/mocks/transactions.mock.ts');
+const { mockScenario } = load('src/data/mocks/scenario.mock.ts');
 
 const subcategorySnapshot = JSON.stringify(subcategoriesMock);
 try {
@@ -63,9 +65,12 @@ assert.equal(planning.availableCents, 182000);
 assert.equal(planning.totalSpentCents, getDashboardData().currentMonthExpensesCents);
 assert.equal(planning.categories.find((item) => item.categoryId === 'category-food').spentCents, 36000);
 assert.equal(planningService.getBudgetVisualStatus(0.69), 'normal');
-assert.equal(planningService.getBudgetVisualStatus(0.70), 'warning');
+assert.equal(planningService.getBudgetVisualStatus(0.70), 'normal');
+assert.equal(planningService.getBudgetVisualStatus(0.7499), 'normal');
+assert.equal(planningService.getBudgetVisualStatus(0.75), 'warning');
 assert.equal(planningService.getBudgetVisualStatus(0.99), 'warning');
-assert.equal(planningService.getBudgetVisualStatus(1), 'exceeded');
+assert.equal(planningService.getBudgetVisualStatus(1), 'warning');
+assert.equal(planningService.getBudgetVisualStatus(1.0001), 'exceeded');
 
 const daily = planningService.getDailySpendingData();
 assert.equal(daily.date, '2026-09-13');
@@ -82,12 +87,35 @@ assert.equal(comparison.categories.find((item) =>
 
 const originalAllowance = planningService.getFreeSpendingAllowance();
 assert.equal(originalAllowance.limitCents, 40000);
-assert.equal(originalAllowance.usedCents, null);
-assert.equal(originalAllowance.remainingCents, null);
+assert.equal(originalAllowance.usedCents, 0);
+assert.equal(originalAllowance.remainingCents, 40000);
+const originalTransactionCount = transactionsMock.length;
 try {
   planningService.saveFreeSpendingAllowance(45000);
   assert.equal(planningService.getFreeSpendingAllowance().limitCents, 45000);
+  const marked = transactionService.createTransaction({
+    type: 'expense', amountCents: 2500, date: '2026-09-13', time: '16:00',
+    description: 'Gasto livre explícito', categoryId: null, freeSpending: true,
+  });
+  assert.equal(marked.categoryId, null);
+  assert.equal(planningService.getFreeSpendingAllowance().usedCents, 2500);
+  assert.equal(planningService.getFreeSpendingAllowance().remainingCents, 42500);
+  transactionsMock.push({ ...transactionsMock[0], id: 'test-uncategorized-common',
+    categoryId: null, freeSpending: false, amountCents: 3000 });
+  assert.equal(planningService.getFreeSpendingAllowance().usedCents, 2500);
+  assert.equal(getDashboardData().balanceCents, 324080 - 2500 - 3000);
+  assert.equal(planningService.getMonthlyPlanningData().totalSpentCents, 123500);
+  assert.equal(planningService.getPlannedVsActualData().totalSpentCents,
+    getDashboardData().currentMonthExpensesCents);
+  assert.equal(getDashboardData().expensesByCategory.reduce((sum, row) => sum + row.totalCents, 0),
+    getDashboardData().currentMonthExpensesCents);
+  mockScenario.activeProfileId = 'profile-other';
+  assert.equal(planningService.getFreeSpendingAllowance().usedCents, 0);
+  assert.equal(planningService.getFreeSpendingAllowance().limitCents, 0);
+  mockScenario.activeProfileId = 'profile-001';
 } finally {
+  mockScenario.activeProfileId = 'profile-001';
+  transactionsMock.splice(originalTransactionCount);
   planningService.saveFreeSpendingAllowance(originalAllowance.limitCents);
 }
 

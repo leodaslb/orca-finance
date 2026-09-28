@@ -54,7 +54,7 @@ export default function SpendingLimitsScreen() {
 
   return <SafeAreaView style={styles.screen}>
     <View style={styles.header}>
-      <Pressable onPress={() => router.back()} accessibilityRole="button"
+      <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/planejamento')} accessibilityRole="button"
         accessibilityLabel="Voltar" style={styles.iconButton}>
         <IconChevronLeft size={24} color={colors.textPrimary} />
       </Pressable>
@@ -88,13 +88,13 @@ export default function SpendingLimitsScreen() {
             ...current, [item.categoryId]: value,
           }))} keyboardType="decimal-pad" style={styles.input}
           accessibilityLabel={`Limite de ${categoryName(item.categoryId)}`} />
-        <Text style={styles.pending}>Período não definido na regra formal.</Text>
+        <Text style={styles.pending}>Configuração de período ainda indisponível nesta versão.</Text>
       </View>)}
       <View style={[styles.addLimit, styles.disabled]}>
         <IconPlus size={18} color={colors.textSecondary} />
         <View style={styles.flex}>
           <Text style={styles.addTitle}>Adicionar limite</Text>
-          <Text style={styles.caption}>Disponível após a definição do período da regra.</Text>
+          <Text style={styles.caption}>Cadastro de novos limites indisponível nesta versão.</Text>
         </View>
       </View>
 

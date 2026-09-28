@@ -18,29 +18,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppSwitch } from '@/components/common/AppSwitch';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
-import { parseBrazilianDateToISO } from '@/utils/date';
+import { formatDateInput, parseBrazilianDateToISO } from '@/utils/date';
+import type { RecurrenceConfiguration } from '@/types/transaction';
 
-export interface RecurrenceConfiguration {
-  recurring: boolean;
-  frequency: 'monthly';
-  nextOccurrence: string | null;
-  reminder: boolean;
-  dueDate: string | null;
-}
+export type { RecurrenceConfiguration } from '@/types/transaction';
 
 interface RecurrenceConfigurationModalProps {
   visible: boolean;
   value: RecurrenceConfiguration;
   onCancel: () => void;
   onSave: (value: RecurrenceConfiguration) => void;
-}
-
-function formatDateInput(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 8);
-
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
 function formatISODate(value: string | null): string {

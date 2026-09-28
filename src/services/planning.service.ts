@@ -7,12 +7,15 @@ import { categoriesMock } from '@/data/mocks/categories.mock';
 import { mockScenario } from '@/data/mocks/scenario.mock';
 import { transactionsMock } from '@/data/mocks/transactions.mock';
 import type { SpendingLimitsConfiguration } from '@/types';
+import { processRecurrences } from '@/services/recurrence.service';
 
 export type BudgetVisualStatus = 'normal' | 'warning' | 'exceeded';
 
+const additionalLimitsByProfile = new Map<string, SpendingLimitsConfiguration>();
+
 export function getBudgetVisualStatus(progress: number): BudgetVisualStatus {
-  if (progress >= 1) return 'exceeded';
-  if (progress >= 0.7) return 'warning';
+  if (progress > 1) return 'exceeded';
+  if (progress >= 0.75) return 'warning';
   return 'normal';
 }
 
@@ -23,15 +26,16 @@ function parsePeriodKey(periodKey: string) {
 }
 
 export function getAvailablePlanningPeriods() {
-  return [...new Set(monthlyBudgetsMock
+  return [...new Set([mockScenario.referenceDate.slice(0, 7), ...monthlyBudgetsMock
     .filter((budget) => budget.profileId === mockScenario.activeProfileId)
-    .map((budget) => `${budget.year}-${String(budget.month).padStart(2, '0')}`))]
+    .map((budget) => `${budget.year}-${String(budget.month).padStart(2, '0')}`)])]
     .sort((a, b) => b.localeCompare(a));
 }
 
 export function getMonthlyPlanningData(
   periodKey = mockScenario.referenceDate.slice(0, 7),
 ) {
+  processRecurrences();
   const { year, month } = parsePeriodKey(periodKey);
   const monthKey = periodKey;
   const budgets = monthlyBudgetsMock.filter((budget) =>
@@ -53,7 +57,8 @@ export function getMonthlyPlanningData(
     };
   });
   const totalBudgetCents = categories.reduce((total, item) => total + item.limitCents, 0);
-  const totalSpentCents = categories.reduce((total, item) => total + item.spentCents, 0);
+  // RF08/RF55: o total mensal também inclui despesas sem orçamento/categoria.
+  const totalSpentCents = expenses.reduce((total, item) => total + item.amountCents, 0);
   const progress = totalBudgetCents === 0 ? 0 : totalSpentCents / totalBudgetCents;
   return {
     periodKey,
@@ -89,15 +94,21 @@ export function getPlannedVsActualData(
 export function getFreeSpendingAllowance(
   periodKey = mockScenario.referenceDate.slice(0, 7),
 ) {
+  processRecurrences();
   const { year, month } = parsePeriodKey(periodKey);
   const allowance = freeSpendingAllowancesMock.find((item) =>
     item.profileId === mockScenario.activeProfileId &&
     item.year === year && item.month === month);
+  const usedCents = transactionsMock.filter((transaction) =>
+    transaction.profileId === mockScenario.activeProfileId &&
+    transaction.type === 'expense' && transaction.status === 'effective' &&
+    transaction.freeSpending === true && transaction.date.startsWith(periodKey))
+    .reduce((total, transaction) => total + transaction.amountCents, 0);
   return {
     periodKey,
     limitCents: allowance?.limitCents ?? 0,
-    usedCents: null,
-    remainingCents: null,
+    usedCents,
+    remainingCents: (allowance?.limitCents ?? 0) - usedCents,
   };
 }
 
@@ -114,7 +125,7 @@ export function saveFreeSpendingAllowance(
     item.year === year && item.month === month);
   if (!allowance) {
     allowance = {
-      id: `free-spending-${periodKey}`,
+      id: `free-spending-${mockScenario.activeProfileId}-${periodKey}`,
       profileId: mockScenario.activeProfileId,
       year,
       month,
@@ -128,6 +139,7 @@ export function saveFreeSpendingAllowance(
 }
 
 export function getDailySpendingData() {
+  processRecurrences();
   const configuration = getSpendingLimitsConfiguration();
   const spentCents = transactionsMock.filter((transaction) =>
     transaction.profileId === mockScenario.activeProfileId && transaction.status === 'effective' &&
@@ -138,8 +150,19 @@ export function getDailySpendingData() {
 }
 
 export function getSpendingLimitsConfiguration(): SpendingLimitsConfiguration {
-  return { ...spendingLimitsMock,
-    categoryLimits: spendingLimitsMock.categoryLimits.map((item) => ({ ...item })) };
+  const profileId = mockScenario.activeProfileId;
+  const configuration = profileId === spendingLimitsMock.profileId
+    ? spendingLimitsMock
+    : additionalLimitsByProfile.get(profileId) ?? {
+      profileId,
+      dailyEnabled: false,
+      dailyLimitCents: 0,
+      categoryLimits: [],
+      pushEnabled: false,
+      emailEnabled: false,
+    };
+  return { ...configuration,
+    categoryLimits: configuration.categoryLimits.map((item) => ({ ...item })) };
 }
 
 export function saveSpendingLimitsConfiguration(
@@ -165,11 +188,18 @@ export function saveSpendingLimitsConfiguration(
     }
     categoryIds.add(item.categoryId);
   }
-  spendingLimitsMock.dailyEnabled = configuration.dailyEnabled;
-  spendingLimitsMock.dailyLimitCents = configuration.dailyLimitCents;
-  spendingLimitsMock.pushEnabled = configuration.pushEnabled;
-  spendingLimitsMock.emailEnabled = configuration.emailEnabled;
-  spendingLimitsMock.categoryLimits.splice(0, spendingLimitsMock.categoryLimits.length,
-    ...configuration.categoryLimits.map((item) => ({ ...item })));
+  if (configuration.profileId !== spendingLimitsMock.profileId) {
+    additionalLimitsByProfile.set(configuration.profileId, {
+      ...configuration,
+      categoryLimits: configuration.categoryLimits.map((item) => ({ ...item })),
+    });
+  } else {
+    spendingLimitsMock.dailyEnabled = configuration.dailyEnabled;
+    spendingLimitsMock.dailyLimitCents = configuration.dailyLimitCents;
+    spendingLimitsMock.pushEnabled = configuration.pushEnabled;
+    spendingLimitsMock.emailEnabled = configuration.emailEnabled;
+    spendingLimitsMock.categoryLimits.splice(0, spendingLimitsMock.categoryLimits.length,
+      ...configuration.categoryLimits.map((item) => ({ ...item })));
+  }
   return getSpendingLimitsConfiguration();
 }

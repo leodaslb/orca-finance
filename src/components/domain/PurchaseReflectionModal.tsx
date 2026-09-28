@@ -5,11 +5,15 @@ import {
   IconShoppingCart,
 } from '@tabler/icons-react-native';
 import {
+  useState,
+} from 'react';
+import {
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,7 +28,7 @@ interface PurchaseReflectionModalProps {
   categoryName: string;
   onFinalize: () => void;
   onReview: () => void;
-  onPlaceInReflection?: () => void;
+  onPlaceInReflection?: (durationHours: number) => void;
 }
 
 export function PurchaseReflectionModal({
@@ -35,6 +39,8 @@ export function PurchaseReflectionModal({
   onReview,
   onPlaceInReflection,
 }: PurchaseReflectionModalProps) {
+  const [durationInput, setDurationInput] = useState('48');
+  const [durationError, setDurationError] = useState(false);
   if (!transaction) return null;
 
   const reflectionAvailable = Boolean(onPlaceInReflection);
@@ -90,6 +96,14 @@ export function PurchaseReflectionModal({
             </View>
           </View>
 
+          {reflectionAvailable && <View style={styles.durationRow}>
+            <Text style={styles.durationLabel}>Período de reflexão (horas)</Text>
+            <TextInput accessibilityLabel="Duração da reflexão em horas" keyboardType="number-pad"
+              value={durationInput} onChangeText={(value) => { setDurationInput(value); setDurationError(false); }}
+              style={styles.durationInput} />
+            {durationError && <Text style={styles.durationError}>Informe uma quantidade inteira de horas maior que zero.</Text>}
+          </View>}
+
           <Pressable
             accessibilityRole="button"
             onPress={onFinalize}
@@ -107,7 +121,11 @@ export function PurchaseReflectionModal({
             accessibilityRole="button"
             accessibilityState={{ disabled: !reflectionAvailable }}
             disabled={!reflectionAvailable}
-            onPress={onPlaceInReflection}
+            onPress={() => {
+              const hours = Number(durationInput);
+              if (!Number.isSafeInteger(hours) || hours <= 0) { setDurationError(true); return; }
+              onPlaceInReflection?.(hours);
+            }}
             style={[
               styles.secondaryButton,
               !reflectionAvailable && styles.buttonDisabled,
@@ -130,6 +148,10 @@ export function PurchaseReflectionModal({
 }
 
 const styles = StyleSheet.create({
+  durationRow: { padding: spacing.lg, gap: spacing.sm, borderWidth: 0.5, borderColor: colors.border, borderRadius: radius.card, backgroundColor: colors.surface },
+  durationLabel: { fontFamily: fontFamily.medium, fontSize: fontSize.body, color: colors.textPrimary },
+  durationInput: { minHeight: 44, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.input, fontFamily: fontFamily.regular, fontSize: fontSize.body, color: colors.textPrimary },
+  durationError: { fontFamily: fontFamily.regular, fontSize: fontSize.caption, color: colors.negative },
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     minHeight: 60,

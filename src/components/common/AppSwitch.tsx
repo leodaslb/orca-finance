@@ -21,6 +21,7 @@ export function AppSwitch({
       accessibilityRole="switch"
       accessibilityState={{ checked: value, disabled }}
       disabled={disabled}
+      hitSlop={10}
       onPress={() => onChange(!value)}
       style={[
         styles.track,

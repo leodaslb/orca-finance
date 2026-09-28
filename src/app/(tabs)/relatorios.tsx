@@ -1,12 +1,12 @@
 import { IconChartBar, IconChevronDown, IconChevronRight, IconDownload, IconX } from '@tabler/icons-react-native';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
 import { AppCard } from '@/components/common/AppCard';
-import { getAvailableReportMonths, getReportData, type ReportWindowMonths } from '@/services/report.service';
+import { generateFinancialExport, getAvailableReportMonths, getReportData, type ReportWindowMonths } from '@/services/report.service';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
 import { formatCurrency } from '@/utils/currency';
 
@@ -47,7 +47,7 @@ export default function RelatoriosScreen() {
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel'>('csv');
-  const [exportMessage, setExportMessage] = useState(false);
+  const [exportMessage, setExportMessage] = useState('');
   const effectiveMonth = months.includes(selectedMonth) ? selectedMonth : months[0];
   const report = getReportData(effectiveMonth, windowMonths);
   const referenceMonth = months[0];
@@ -146,7 +146,7 @@ export default function RelatoriosScreen() {
           </View>)}
       </AppCard>
 
-      <Pressable onPress={() => { setExportMessage(false); setExportOpen(true); }}
+      <Pressable onPress={() => { setExportMessage(''); setExportOpen(true); }}
         style={styles.exportCard} accessibilityRole="button" accessibilityLabel="Exportar dados">
         <View style={styles.exportIcon}><IconDownload size={23} color={colors.primary} /></View>
         <View style={styles.exportText}><Text style={styles.exportTitle}>Exportar dados</Text>
@@ -168,7 +168,7 @@ export default function RelatoriosScreen() {
           <Text style={styles.sheetLabel}>Formato</Text>
           <View style={styles.formatRow}>
             {(['csv', 'excel'] as const).map((format) => <Pressable key={format}
-              onPress={() => { setExportFormat(format); setExportMessage(false); }}
+              onPress={() => { setExportFormat(format); setExportMessage(''); }}
               style={[styles.formatButton, exportFormat === format && styles.formatSelected]}
               accessibilityRole="button" accessibilityState={{ selected: exportFormat === format }}>
               <Text style={[styles.formatText, exportFormat === format && styles.formatTextSelected]}>
@@ -179,10 +179,16 @@ export default function RelatoriosScreen() {
           <Text style={styles.sheetLabel}>Período</Text>
           <Text style={styles.sheetPeriod}>{dateLabel(report.startDate)} — {dateLabel(report.endDate)}</Text>
           <Text style={styles.sheetHint}>Para alterar o período, use os controles do relatório.</Text>
-          {exportMessage && <Text style={styles.unavailable}>
-            A geração do arquivo ainda não está disponível nesta versão.
-          </Text>}
-          <Pressable onPress={() => setExportMessage(true)} style={styles.exportButton}
+          {!!exportMessage && <Text style={styles.unavailable}>{exportMessage}</Text>}
+          <Pressable onPress={async () => {
+            try {
+              const generated = generateFinancialExport(exportFormat, effectiveMonth, windowMonths);
+              setExportMessage(`${generated.rowCount} registros preparados. Compartilhamento em texto; salvar como arquivo requer infraestrutura adicional.`);
+              await Share.share({ title: generated.fileName, message: generated.content });
+            } catch (error) {
+              setExportMessage(error instanceof Error ? error.message : 'Não foi possível preparar a exportação.');
+            }
+          }} style={styles.exportButton}
             accessibilityRole="button"><Text style={styles.exportButtonText}>Exportar</Text></Pressable>
         </View>
       </View>

@@ -1,8 +1,9 @@
 import { TransactionFiltersSheet } from '@/components/domain/TransactionFiltersSheet';
 import { TransactionItem } from '@/components/domain/TransactionItem';
-import { getTransactionSections } from '@/services/transaction.service';
+import { getTransactionCategories, getTransactionSections } from '@/services/transaction.service';
+import { getReflectionItems } from '@/services/reflection.service';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
-import { IconAdjustmentsHorizontal, IconCalendar, IconCategory, IconSearch, IconTag, IconX } from '@tabler/icons-react-native';
+import { IconAdjustmentsHorizontal, IconCalendar, IconCategory, IconPlayerPause, IconSearch, IconTag, IconX } from '@tabler/icons-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Keyboard, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -12,6 +13,7 @@ export default function TransacoesScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [reflectionOnly, setReflectionOnly] = useState(false);
   const [dataRevision, setDataRevision] = useState(0);
   const closeFilters = () => setFiltersOpen(false);
   const openFilters = () => { Keyboard.dismiss(); setFiltersOpen(true); };
@@ -26,10 +28,15 @@ export default function TransacoesScreen() {
     () => getTransactionSections(query),
     [dataRevision, query],
   );
+  const reflectionItems = useMemo(() => reflectionOnly
+    ? getReflectionItems(query)
+    : [], [dataRevision, query, reflectionOnly]);
+  const categoryNames = useMemo(() => new Map(getTransactionCategories()
+    .map((category) => [category.id, category.name])), []);
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <SectionList
-        sections={sections}
+        sections={reflectionOnly ? [] : sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -56,6 +63,11 @@ export default function TransacoesScreen() {
               </Pressable>}
             </View>
             <View style={styles.filters}>
+              <Pressable onPress={() => setReflectionOnly((current) => !current)}
+                style={[styles.chip, reflectionOnly && styles.chipActive]} accessibilityRole="button"
+                accessibilityState={{ selected: reflectionOnly }} accessibilityLabel="Filtrar itens em reflexão">
+                <IconPlayerPause size={18} color={colors.primary} /><Text style={styles.chipText}>Em reflexão</Text>
+              </Pressable>
               <Pressable onPress={openFilters} style={styles.chip} accessibilityRole="button" accessibilityLabel="Abrir filtros por data">
                 <IconCalendar size={18} color={colors.primary} /><Text style={styles.chipText}>Data</Text>
               </Pressable>
@@ -66,12 +78,24 @@ export default function TransacoesScreen() {
                 <IconAdjustmentsHorizontal size={20} color={colors.textSecondary} />
               </Pressable>
             </View>
+            {reflectionOnly && reflectionItems.length > 0 && <View style={styles.reflectionResults}>
+              <Text style={styles.sectionTitle}>AGUARDANDO REFLEXÃO</Text>
+              {reflectionItems.map((item) => <TransactionItem key={item.id}
+                description={item.transaction.description} categoryId={item.transaction.categoryId}
+                categoryName={categoryNames.get(item.transaction.categoryId ?? '') ?? 'Sem categoria'}
+                amountCents={item.transaction.amountCents} type="expense" status="reflection"
+                variant="list" onPress={() => router.push('/reflexao')} />)}
+            </View>}
           </View>
         }
         renderSectionHeader={({ section }) => <Text style={styles.sectionTitle}>{section.title.toLocaleUpperCase('pt-BR')}</Text>}
         renderItem={({ item }) => <TransactionItem {...item} variant="list"
           onPress={() => router.push({ pathname: '/transacao/[id]', params: { id: item.id } })} />}
-        ListEmptyComponent={<Text style={styles.empty}>Nenhuma transação encontrada.</Text>}
+        ListEmptyComponent={reflectionOnly
+          ? reflectionItems.length === 0
+            ? <Text style={styles.empty}>Nenhum item em reflexão encontrado.</Text>
+            : null
+          : <Text style={styles.empty}>Nenhuma transação encontrada.</Text>}
       />
       <TransactionFiltersSheet visible={filtersOpen} onCancel={closeFilters}
         onApply={closeFilters} onClear={closeFilters} />
@@ -93,7 +117,9 @@ const styles = StyleSheet.create({
   clear: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   filters: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   chip: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.lg, backgroundColor: colors.primaryTint, borderRadius: radius.pill },
+  chipActive: { borderWidth: 1, borderColor: colors.primary },
   chipText: { fontFamily: fontFamily.medium, fontSize: fontSize.body, color: colors.primary },
+  reflectionResults: { marginTop: spacing.sm },
   sectionTitle: { marginTop: spacing.lg, marginBottom: spacing.sm, fontFamily: fontFamily.medium, fontSize: fontSize.caption, color: colors.textSecondary },
   empty: { paddingVertical: spacing.lg, fontFamily: fontFamily.regular, fontSize: fontSize.body, color: colors.textSecondary },
 });

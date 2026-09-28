@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppCard } from '@/components/common/AppCard';
+import { ProgressBar } from '@/components/common/ProgressBar';
 import {
   getFreeSpendingAllowance,
   saveFreeSpendingAllowance,
@@ -48,10 +49,11 @@ export default function FreeSpendingScreen() {
         <Text style={styles.caption}>Cota mensal</Text>
         <Text style={styles.quota}>{formatCurrency(allowance.limitCents)}</Text>
         <Text style={styles.description}>Disponível para gastos marcados como livres</Text>
+        <ProgressBar progress={allowance.limitCents === 0 ? 0 : allowance.usedCents / allowance.limitCents}
+          color={colors.primary} />
         <View style={styles.pendingBox}>
-          <Text style={styles.pendingText}>
-            Utilizado e restante serão exibidos quando houver marcação explícita nas transações.
-          </Text>
+          <Text style={styles.pendingText}>Utilizado: {formatCurrency(allowance.usedCents)}</Text>
+          <Text style={styles.pendingText}>Restante: {formatCurrency(allowance.remainingCents)}</Text>
         </View>
       </AppCard>
       <AppCard style={styles.configCard}>
@@ -59,7 +61,7 @@ export default function FreeSpendingScreen() {
         <Text style={styles.label}>Valor da cota mensal</Text>
         <TextInput value={value} onChangeText={setValue} keyboardType="decimal-pad"
           style={styles.input} accessibilityLabel="Valor da cota mensal" />
-        <Text style={styles.caption}>Este valor será renovado a cada mês.</Text>
+        <Text style={styles.caption}>Esta cota vale para o período atual.</Text>
         <Pressable onPress={save} style={styles.saveButton} accessibilityRole="button">
           <Text style={styles.saveText}>Salvar cota</Text>
         </Pressable>
@@ -71,8 +73,8 @@ export default function FreeSpendingScreen() {
         <View style={styles.infoContent}>
           <Text style={styles.infoTitle}>Como funciona?</Text>
           <Text style={styles.description}>
-            A cota mantém uma margem flexível no planejamento. O consumo depende
-            de uma marcação explícita ainda não disponível no cadastro.
+            Apenas despesas marcadas como gasto livre no cadastro consomem esta cota.
+            Elas continuam compondo o saldo e os totais financeiros.
           </Text>
         </View>
       </AppCard>

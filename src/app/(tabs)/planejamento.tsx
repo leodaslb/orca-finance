@@ -24,6 +24,7 @@ import {
   getDailySpendingData,
   getFreeSpendingAllowance,
   getMonthlyPlanningData,
+  getBudgetVisualStatus,
   type BudgetVisualStatus,
 } from '@/services/planning.service';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
@@ -64,15 +65,16 @@ export default function PlanejamentoScreen() {
   const planning = getMonthlyPlanningData();
   const daily = getDailySpendingData();
   const freeSpending = getFreeSpendingAllowance();
-  const monthLabel = new Intl.DateTimeFormat('pt-BR', {
+  const formattedMonth = new Intl.DateTimeFormat('pt-BR', {
     month: 'long',
     year: 'numeric',
     timeZone: 'UTC',
   }).format(new Date(`${planning.referenceDate.slice(0, 7)}-01T00:00:00Z`));
+  const monthLabel = formattedMonth.charAt(0).toLocaleUpperCase('pt-BR') + formattedMonth.slice(1);
   const dailyProgress = daily.limitCents === 0 ? 0 : daily.spentCents / daily.limitCents;
   const dailyStatus: BudgetVisualStatus = dailyProgress >= 1
     ? 'exceeded'
-    : dailyProgress >= 0.7 ? 'warning' : 'normal';
+    : getBudgetVisualStatus(dailyProgress);
 
   const goBack = () => router.canGoBack()
     ? router.back()
@@ -144,11 +146,11 @@ export default function PlanejamentoScreen() {
             <Text style={styles.quickLabel}>Gastos livres</Text>
           </View>
           <Text numberOfLines={1} adjustsFontSizeToFit style={styles.freePending}>
-            {formatCurrency(freeSpending.limitCents)}
+            {formatCurrency(freeSpending.usedCents)} / {formatCurrency(freeSpending.limitCents)}
           </Text>
-          <ProgressBar progress={0} color={colors.primary}
-            accessibilityLabel="Cota de gastos livres não configurada" />
-          <Text style={styles.quickCaption}>No mês</Text>
+          <ProgressBar progress={freeSpending.limitCents === 0 ? 0 : freeSpending.usedCents / freeSpending.limitCents} color={colors.primary}
+            accessibilityLabel="Uso da cota de gastos livres" />
+          <Text style={styles.quickCaption}>Restante: {formatCurrency(freeSpending.remainingCents)}</Text>
         </Pressable>
       </View>
 
@@ -210,7 +212,7 @@ const styles = StyleSheet.create({
   header: { minHeight: 54, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between' },
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  monthTitle: { textTransform: 'capitalize', fontFamily: fontFamily.medium,
+  monthTitle: { fontFamily: fontFamily.medium,
     fontSize: 20, color: colors.textPrimary },
   summaryCard: { gap: spacing.lg, padding: 20 },
   summaryColumns: { flexDirection: 'row', alignItems: 'stretch' },

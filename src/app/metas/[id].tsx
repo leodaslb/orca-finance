@@ -28,10 +28,11 @@ import {
   addGoalContribution,
   getGoalById,
   getGoalReferenceDate,
+  updateGoalDeadline,
 } from '@/services/goal.service';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
 import { formatCurrency, parseCurrencyToCents } from '@/utils/currency';
-import { formatTransactionDate, parseBrazilianDateToISO } from '@/utils/date';
+import { formatDateInput, formatTransactionDate, parseBrazilianDateToISO } from '@/utils/date';
 
 function isoToBrazilian(date: string) {
   const [year, month, day] = date.split('-');
@@ -43,6 +44,8 @@ export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const [revision, setRevision] = useState(0);
   const [contributionOpen, setContributionOpen] = useState(false);
+  const [deadlineOpen, setDeadlineOpen] = useState(false);
+  const [newDeadline, setNewDeadline] = useState('');
   useFocusEffect(useCallback(() => {
     setRevision((current) => current + 1);
   }, []));
@@ -113,6 +116,14 @@ export default function GoalDetailScreen() {
           <Text style={styles.target}>Para atingir sua meta até a data limite.</Text>
         </View>
       </AppCard>
+      {goal.isExpired && <AppCard style={styles.expiredCard}>
+        <Text style={styles.expiredTitle}>Meta não cumprida no prazo</Text>
+        <Text style={styles.target}>Faltaram {formatCurrency(goal.remainingCents)} para atingir o objetivo.</Text>
+        <Pressable accessibilityRole="button" style={styles.deadlineButton}
+          onPress={() => { setNewDeadline(isoToBrazilian(goal.deadline)); setDeadlineOpen(true); }}>
+          <Text style={styles.deadlineButtonText}>Alterar data-limite</Text>
+        </Pressable>
+      </AppCard>}
       <Text style={styles.sectionTitle}>Últimos aportes</Text>
       <AppCard style={styles.contributionsCard}>
         {goal.contributions.length === 0 && <Text style={styles.target}>
@@ -145,6 +156,32 @@ export default function GoalDetailScreen() {
         setContributionOpen(false);
         setRevision((current) => current + 1);
       }} />
+    <Modal visible={deadlineOpen} transparent animationType="slide" onRequestClose={() => setDeadlineOpen(false)}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Pressable style={styles.backdrop} onPress={() => setDeadlineOpen(false)} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sectionTitle}>Alterar data-limite</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Fechar" onPress={() => setDeadlineOpen(false)}>
+              <IconX size={22} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+          <Text style={styles.target}>Seus aportes serão preservados. A sugestão será recalculada.</Text>
+          <TextInput style={styles.input} value={newDeadline} onChangeText={(text) => setNewDeadline(formatDateInput(text))}
+            keyboardType="number-pad" maxLength={10} placeholder="dd/mm/aaaa" placeholderTextColor={colors.navInactive} />
+          <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => {
+            const date = parseBrazilianDateToISO(newDeadline);
+            try {
+              updateGoalDeadline(goal.id, date ?? '');
+              setDeadlineOpen(false);
+              setRevision((current) => current + 1);
+            } catch (error) {
+              Alert.alert('Data inválida', error instanceof Error ? error.message : 'Tente novamente.');
+            }
+          }}><Text style={styles.primaryText}>Salvar nova data</Text></Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   </SafeAreaView>;
 }
 
@@ -177,7 +214,7 @@ function ContributionSheet(props: {
       <View style={styles.sheet}>
         <View style={styles.sheetHeader}>
           <Text style={styles.sectionTitle}>Registrar aporte</Text>
-          <Pressable onPress={props.onClose} style={styles.closeButton}>
+          <Pressable onPress={props.onClose} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Fechar aporte">
             <IconX size={22} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -186,9 +223,9 @@ function ContributionSheet(props: {
           placeholder="R$ 0,00" placeholderTextColor={colors.navInactive}
           style={styles.input} />
         <Text style={styles.inputLabel}>Data</Text>
-        <TextInput value={date} onChangeText={setDate} keyboardType="number-pad"
+        <TextInput value={date} onChangeText={(text) => setDate(formatDateInput(text))} keyboardType="number-pad"
           maxLength={10} style={styles.input} />
-        <Pressable onPress={submit} style={styles.primaryButton}>
+        <Pressable onPress={submit} style={styles.primaryButton} accessibilityRole="button">
           <Text style={styles.primaryText}>Confirmar aporte</Text>
         </Pressable>
       </View>
@@ -228,6 +265,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill, backgroundColor: colors.positiveTint },
   suggestionTitle: { fontFamily: fontFamily.bold, fontSize: fontSize.title,
     color: colors.textPrimary },
+  expiredCard: { gap: spacing.md, borderColor: colors.warning },
+  expiredTitle: { fontFamily: fontFamily.bold, fontSize: fontSize.title, color: colors.warning },
+  deadlineButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.primary, borderRadius: radius.input },
+  deadlineButtonText: { fontFamily: fontFamily.medium, fontSize: fontSize.body, color: colors.primary },
   sectionTitle: { fontFamily: fontFamily.bold, fontSize: fontSize.title,
     color: colors.textPrimary },
   contributionsCard: { paddingVertical: 0 },

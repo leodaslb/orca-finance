@@ -48,13 +48,15 @@ import type {
 } from '@/types/transaction';
 import { parseCurrencyToCents } from '@/utils/currency';
 import {
+  formatDateInput,
   formatTransactionDate,
   isValidTime,
   parseBrazilianDateToISO,
 } from '@/utils/date';
 
 interface TransactionFormProps {
-  onSubmit?: (transaction: CreateTransactionInput) => void;
+  onSubmit?: (transaction: CreateTransactionInput, recurrence: RecurrenceConfiguration) => void;
+  onPlaceInReflection?: (transaction: CreateTransactionInput, durationHours: number, recurrence: RecurrenceConfiguration) => void;
   onAddReceipt?: () => void;
 }
 
@@ -89,20 +91,6 @@ function formatMoneyInput(value: string): string {
   return `${reais},${cents.slice(0, 2)}`;
 }
 
-function formatDateInput(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 8);
-
-  if (digits.length <= 2) {
-    return digits;
-  }
-
-  if (digits.length <= 4) {
-    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  }
-
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-}
-
 function formatTimeInput(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 4);
 
@@ -115,6 +103,7 @@ function formatTimeInput(value: string): string {
 
 export function TransactionForm({
   onSubmit,
+  onPlaceInReflection,
   onAddReceipt,
 }: TransactionFormProps) {
   const categories = getTransactionCategories();
@@ -138,6 +127,7 @@ export function TransactionForm({
   const [tagsInput, setTagsInput] = useState('');
   const [essentiality, setEssentiality] =
     useState<Essentiality | null>(null);
+  const [freeSpending, setFreeSpending] = useState(false);
 
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
@@ -174,13 +164,14 @@ export function TransactionForm({
     date !== null &&
     isValidTime(timeInput) &&
     description.trim().length > 0 &&
-    categoryId.length > 0;
+    (categoryId.length > 0 || (type === 'expense' && freeSpending));
 
   function handleTypeChange(nextType: TransactionType) {
     setType(nextType);
 
     if (nextType === 'income') {
       setEssentiality(null);
+      setFreeSpending(false);
     }
   }
 
@@ -266,13 +257,14 @@ export function TransactionForm({
       date,
       time: timeInput,
       description: description.trim(),
-      categoryId,
+      categoryId: categoryId || null,
       subcategoryId,
       paymentMethod,
       tags,
       notes: null,
       essentiality: type === 'expense' ? essentiality : null,
       receiptUri: null,
+      freeSpending: type === 'expense' && freeSpending,
     };
 
     if (requiresPurchaseReflection(input)) {
@@ -280,14 +272,14 @@ export function TransactionForm({
       return;
     }
 
-    onSubmit?.(input);
+    onSubmit?.(input, recurrenceConfiguration);
   }
 
   function handleFinalizeReflection() {
     if (!reflectionInput) return;
     const input = reflectionInput;
     setReflectionInput(null);
-    onSubmit?.(input);
+    onSubmit?.(input, recurrenceConfiguration);
   }
 
   function handleRecurringChange(value: boolean) {
@@ -349,6 +341,8 @@ export function TransactionForm({
       <View style={styles.typeSelector}>
         <Pressable
           onPress={() => handleTypeChange('income')}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: type === 'income' }}
           style={[
             styles.typeOption,
             type === 'income' && styles.incomeActive,
@@ -366,6 +360,8 @@ export function TransactionForm({
 
         <Pressable
           onPress={() => handleTypeChange('expense')}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: type === 'expense' }}
           style={[
             styles.typeOption,
             type === 'expense' && styles.expenseActive,
@@ -496,7 +492,7 @@ export function TransactionForm({
             ]}
           >
             {selectedCategory?.name ??
-              'Selecione a categoria'}
+              (type === 'expense' && freeSpending ? 'Categoria opcional para gasto livre' : 'Selecione a categoria')}
           </Text>
 
           <IconChevronDown
@@ -529,7 +525,7 @@ export function TransactionForm({
           </View>
         )}
 
-        {showErrors && !categoryId && (
+        {showErrors && !categoryId && !(type === 'expense' && freeSpending) && (
           <Text style={styles.error}>
             Selecione uma categoria.
           </Text>
@@ -754,6 +750,12 @@ export function TransactionForm({
               />
             </Pressable>
 
+            {type === 'expense' && <View style={styles.actionRow}>
+              <IconWallet size={24} color={colors.primary} />
+              <Text style={[styles.actionTitle, styles.actionInfo]}>Contabilizar como gasto livre</Text>
+              <AppSwitch accessibilityLabel="Contabilizar como gasto livre" value={freeSpending} onChange={setFreeSpending} />
+            </View>}
+
             {/* RECORRÊNCIA */}
             <View style={styles.actionRow}>
               <IconRefresh
@@ -863,6 +865,9 @@ export function TransactionForm({
                         'essential',
                       )
                     }
+                    accessibilityRole="radio"
+                    accessibilityLabel="Compra essencial"
+                    accessibilityState={{ selected: essentiality === 'essential' }}
                     style={[
                       styles.essentialOption,
                       essentiality ===
@@ -888,6 +893,9 @@ export function TransactionForm({
                         'non_essential',
                       )
                     }
+                    accessibilityRole="radio"
+                    accessibilityLabel="Compra não essencial"
+                    accessibilityState={{ selected: essentiality === 'non_essential' }}
                     style={[
                       styles.essentialOption,
                       essentiality ===
@@ -915,6 +923,7 @@ export function TransactionForm({
 
       <Pressable
         onPress={handleSubmit}
+        accessibilityRole="button"
         style={styles.saveButton}
       >
         <Text
@@ -937,6 +946,12 @@ export function TransactionForm({
     <PurchaseReflectionModal
       categoryName={selectedCategory?.name ?? 'Sem categoria'}
       onFinalize={handleFinalizeReflection}
+      onPlaceInReflection={onPlaceInReflection && reflectionInput
+        ? (durationHours) => {
+            onPlaceInReflection(reflectionInput, durationHours, recurrenceConfiguration);
+            setReflectionInput(null);
+          }
+        : undefined}
       onReview={() => setReflectionInput(null)}
       transaction={reflectionInput}
       visible={reflectionInput !== null}

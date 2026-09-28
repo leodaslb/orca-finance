@@ -1,6 +1,7 @@
 ﻿import { categoriesMock } from '@/data/mocks/categories.mock';
 import { mockScenario } from '@/data/mocks/scenario.mock';
 import { transactionsMock } from '@/data/mocks/transactions.mock';
+import { processRecurrences } from '@/services/recurrence.service';
 
 export type ReportWindowMonths = 1 | 3 | 6;
 
@@ -12,6 +13,7 @@ function monthStart(monthKey: string): Date {
 }
 
 export function getAvailableReportMonths(): string[] {
+  processRecurrences();
   const referenceMonth = mockScenario.referenceDate.slice(0, 7);
   return [...new Set([
     referenceMonth,
@@ -58,4 +60,38 @@ export function getReportData(
   })).sort((a, b) => b.amountCents - a.amountCents || a.categoryName.localeCompare(b.categoryName));
 
   return { startDate, endDate, endMonth, windowMonths, totalCents, categories };
+}
+
+export function generateFinancialExport(
+  format: 'csv' | 'excel',
+  endMonth = mockScenario.referenceDate.slice(0, 7),
+  windowMonths: ReportWindowMonths = 1,
+) {
+  const period = getReportData(endMonth, windowMonths);
+  const delimiter = format === 'csv' ? ',' : '\t';
+  const rows = transactionsMock.filter((transaction) =>
+    transaction.profileId === mockScenario.activeProfileId &&
+    transaction.status === 'effective' && transaction.date <= mockScenario.referenceDate &&
+    transaction.date >= period.startDate && transaction.date <= period.endDate)
+    .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  const cell = (value: string | number) => {
+    const text = typeof value === 'string' && /^[=+\-@]/.test(value.trimStart())
+      ? `'${value}` : String(value);
+    return format === 'csv' ? `"${text.replace(/"/g, '""')}"` : text.replace(/[\t\r\n]/g, ' ');
+  };
+  const header = ['Data', 'Hora', 'Tipo', 'Descrição', 'Categoria', 'Valor (centavos)'];
+  const lines = [header.map(cell).join(delimiter), ...rows.map((transaction) => [
+    transaction.date,
+    transaction.time,
+    transaction.type === 'expense' ? 'Despesa' : 'Receita',
+    transaction.description,
+    categoriesMock.find((category) => category.id === transaction.categoryId)?.name ?? 'Sem categoria',
+    transaction.type === 'expense' ? -transaction.amountCents : transaction.amountCents,
+  ].map(cell).join(delimiter))];
+  return {
+    fileName: `orca-finance-${period.startDate}-${period.endDate}.${format === 'csv' ? 'csv' : 'tsv'}`,
+    mimeType: format === 'csv' ? 'text/csv' : 'text/tab-separated-values',
+    content: `${format === 'excel' ? '\uFEFF' : ''}${lines.join('\r\n')}\r\n`,
+    rowCount: rows.length,
+  };
 }

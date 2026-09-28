@@ -47,6 +47,7 @@ export default function DashboardScreen() {
     () => getDashboardData(),
     [dataRevision],
   );
+  const goal = data.goal;
   return (
     <SafeAreaView
       style={styles.safeArea}
@@ -77,6 +78,7 @@ export default function DashboardScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Abrir perfil e configurações"
+            onPress={() => router.push('/configuracoes')}
             style={styles.avatar}
           >
             <Text style={styles.avatarText}>
@@ -99,20 +101,20 @@ export default function DashboardScreen() {
           items={data.expensesByCategory}
         />
 
-        <GoalCard
-          name={data.goal.name}
-          currentCents={data.goal.currentCents}
-          targetCents={data.goal.targetCents}
-          progress={data.goal.progress}
+        {goal ? <GoalCard
+          name={goal.name}
+          currentCents={goal.currentCents}
+          targetCents={goal.targetCents}
+          progress={goal.progress}
           onPress={() =>
             router.push({
               pathname: '/metas/[id]',
               params: {
-                id: data.goal.id,
+                id: goal.id,
               },
             })
           }
-        />
+        /> : <AppCard><Text style={styles.emptyText}>Você ainda não criou metas para este perfil.</Text></AppCard>}
 
         <AppCard style={styles.transactionsCard}>
           <View style={styles.transactionsHeader}>
@@ -135,6 +137,7 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.transactionsList}>
+            {data.recentTransactions.length === 0 && <Text style={styles.emptyText}>Nenhuma transação neste perfil.</Text>}
             {data.recentTransactions.map(
               (transaction, index) => (
                 <TransactionItem
@@ -291,5 +294,11 @@ const styles = StyleSheet.create({
 
   transactionsList: {
     marginTop: spacing.xs,
+  },
+
+  emptyText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.body,
+    color: colors.textSecondary,
   },
 });

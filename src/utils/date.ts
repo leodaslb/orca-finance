@@ -50,6 +50,14 @@ export function formatTransactionDate(date: string): string {
     day: '2-digit', month: 'short', year: 'numeric',
   }).format(parseLocalDate(date)));
 }
+// Permite digitar datas com o teclado numérico Android, que não oferece barras.
+export function formatDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
 export function parseBrazilianDateToISO(
   value: string
 ): string | null {

@@ -6,6 +6,7 @@ import {
     IconTargetArrow,
 } from '@tabler/icons-react-native';
 import { Tabs, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     Pressable,
     StyleSheet,
@@ -23,6 +24,7 @@ import {
 
 export default function TabsLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -30,7 +32,7 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.navInactive,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { height: 64 + insets.bottom, paddingBottom: insets.bottom }],
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >

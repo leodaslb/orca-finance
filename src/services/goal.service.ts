@@ -69,6 +69,8 @@ function enrichGoal(goal: Goal) {
     ...goal,
     currentCents,
     progress: goal.targetCents === 0 ? 0 : currentCents / goal.targetCents,
+    isExpired: goal.deadline < mockScenario.referenceDate && currentCents < goal.targetCents,
+    remainingCents: Math.max(goal.targetCents - currentCents, 0),
     suggestionCents: calculateGoalSuggestion({
       targetCents: goal.targetCents,
       currentCents,
@@ -93,6 +95,16 @@ export function getGoalById(id: string) {
   const goal = goalsMock.find((item) =>
     item.id === id && item.profileId === mockScenario.activeProfileId);
   return goal ? enrichGoal(goal) : undefined;
+}
+
+export function updateGoalDeadline(id: string, deadline: string) {
+  const goal = goalsMock.find((item) => item.id === id && item.profileId === mockScenario.activeProfileId);
+  if (!goal) throw new Error('Meta não encontrada.');
+  if (!isValidISODate(deadline) || deadline <= mockScenario.referenceDate) {
+    throw new Error('Informe uma nova data-limite futura.');
+  }
+  goal.deadline = deadline;
+  return enrichGoal(goal);
 }
 
 export function createGoal(input: CreateGoalInput) {

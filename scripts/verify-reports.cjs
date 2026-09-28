@@ -25,7 +25,7 @@ function load(file) {
   return module.exports;
 }
 
-const { getAvailableReportMonths, getReportData } = load('src/services/report.service.ts');
+const { getAvailableReportMonths, getReportData, generateFinancialExport } = load('src/services/report.service.ts');
 const { getDashboardData } = load('src/services/dashboard.service.ts');
 const { getMonthlyPlanningData } = load('src/services/planning.service.ts');
 const { transactionsMock } = load('src/data/mocks/transactions.mock.ts');
@@ -45,6 +45,15 @@ assert.equal(getReportData('2026-08', 1).totalCents, 136700);
 assert.equal(getReportData('2026-09', 3).totalCents, 254700);
 assert.equal(getReportData('2026-09', 6).totalCents, 254700);
 assert.throws(() => getReportData('2026-10', 1));
+const csv = generateFinancialExport('csv', '2026-09', 1);
+assert.equal(csv.fileName, 'orca-finance-2026-09-01-2026-09-30.csv');
+assert.ok(csv.content.includes('"Descrição"'));
+assert.ok(csv.content.includes('"Supermercado Extra"'));
+assert.ok(!csv.content.includes('2026-08-'));
+const excel = generateFinancialExport('excel', '2026-09', 1);
+assert.ok(excel.content.startsWith('\uFEFF'));
+assert.ok(excel.fileName.endsWith('.tsv'));
+assert.equal(excel.rowCount, csv.rowCount);
 
 try {
   transactionsMock.push({ ...transactionsMock[0], id: 'test-report-scheduled',
@@ -53,9 +62,15 @@ try {
     profileId: 'profile-other', amountCents: 99900 });
   transactionsMock.push({ ...transactionsMock[0], id: 'test-report-uncategorized',
     categoryId: null, amountCents: 100 });
+  transactionsMock.push({ ...transactionsMock[0], id: 'test-report-formula',
+    description: '=SUM(1+1)', amountCents: 100 });
   const updated = getReportData();
-  assert.equal(updated.totalCents, 118100);
+  assert.equal(updated.totalCents, 118200);
+  assert.equal(updated.totalCents, getMonthlyPlanningData().totalSpentCents);
+  assert.equal(updated.totalCents, getDashboardData().currentMonthExpensesCents);
   assert.equal(updated.categories.find((item) => item.categoryId === 'uncategorized').amountCents, 100);
+  assert.equal(generateFinancialExport('csv').rowCount, csv.rowCount + 2);
+  assert.ok(generateFinancialExport('csv').content.includes("'\u003dSUM(1+1)"));
 } finally {
   transactionsMock.splice(originalLength);
 }

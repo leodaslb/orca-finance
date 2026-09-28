@@ -1,10 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { IconArrowLeft, IconCalendar, IconClock, IconCreditCard, IconHash, IconNotes, IconPencil, IconPhoto, IconShoppingCart, IconStar, IconBuildingStore, IconTag, IconWallet } from '@tabler/icons-react-native';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppCard } from '@/components/common/AppCard';
 import { TransactionDetailRow } from '@/components/domain/TransactionDetailRow';
-import { getTransactionById } from '@/services/transaction.service';
+import { RecurrenceConfigurationModal } from '@/components/domain/RecurrenceConfigurationModal';
+import { getRecurrenceForTransaction, updateRecurrence } from '@/services/recurrence.service';
+import { getTransactionById, reverseTransaction } from '@/services/transaction.service';
 import type { Essentiality, PaymentMethod } from '@/types/transaction';
 import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
 import { formatCurrency } from '@/utils/currency';
@@ -22,18 +25,18 @@ const iconProps = { size: 20, color: colors.textSecondary, strokeWidth: 1.8 };
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const router = useRouter();
+  const [reversalOpen, setReversalOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [, setRevision] = useState(0);
   const transaction = typeof id === 'string' ? getTransactionById(id) : undefined;
+  const recurrence = transaction ? getRecurrenceForTransaction(transaction.id) : undefined;
   const goBack = () => router.canGoBack() ? router.back() : router.replace('/(tabs)/transacoes');
   const isExpense = transaction?.type === 'expense';
   const amountStyle = isExpense ? styles.expense : styles.income;
   const receiptUri = transaction?.receiptUri;
-  // O dataset contém apenas uma URI mock, sem arquivo. Abertura externa é provisória.
-  const canOpenReceipt = !!receiptUri && /^https?:\/\//i.test(receiptUri);
-  const openReceipt = async () => {
-    if (!receiptUri || !canOpenReceipt) return;
-    try { await Linking.openURL(receiptUri); }
-    catch { Alert.alert('Comprovante indisponível', 'Não foi possível abrir o comprovante.'); }
-  };
+  // O mock:// existente não aponta para uma imagem real. URIs de arquivo/imagem são exibidas quando disponíveis.
+  const canOpenReceipt = !!receiptUri && /^(https?:\/\/|file:\/\/|content:\/\/|data:image\/)/i.test(receiptUri);
 
   const rows = transaction ? [
     { label: 'Categoria', value: transaction.categoryName, icon: <IconTag {...iconProps} /> },
@@ -74,21 +77,74 @@ export default function TransactionDetailScreen() {
           </AppCard>
           {!!receiptUri && <AppCard>
             <Text style={styles.secondary}>Comprovante</Text>
-            <Pressable onPress={openReceipt} disabled={!canOpenReceipt} style={styles.receipt}
+            <Pressable onPress={() => setReceiptOpen(true)} disabled={!canOpenReceipt} style={styles.receipt}
               accessibilityRole="button" accessibilityState={{ disabled: !canOpenReceipt }}>
               <IconPhoto {...iconProps} /><Text style={styles.body}>Ver recibo{!canOpenReceipt ? ' — indisponível' : ''}</Text>
             </Pressable>
             {!canOpenReceipt && <Text style={styles.secondary}>Comprovante sem arquivo disponível para visualização.</Text>}
           </AppCard>}
-          {/* TXR-14/15: sem fonte de recorrência, estratégia de edição ou snapshot de auditoria. */}
-          <Pressable disabled accessibilityRole="button" accessibilityState={{ disabled: true }} style={styles.edit}>
+          {recurrence && <AppCard>
+            <Text style={styles.secondary}>Recorrência</Text>
+            <Text style={styles.body}>{recurrence.configuration.recurring ? 'Mensal' : 'Desativada'}</Text>
+            <Pressable accessibilityRole="button" style={styles.receipt} onPress={() => setRecurrenceOpen(true)}>
+              <Text style={styles.editText}>Editar configuração futura</Text>
+            </Pressable>
+          </AppCard>}
+          {/* A edição geral ainda não foi implementada; reversão possui regra consolidada. */}
+          <Pressable disabled accessibilityRole="button" accessibilityState={{ disabled: true }} style={[styles.edit, { opacity: 0.5 }]}>
             <Text style={styles.editText}>Editar transação — indisponível</Text>
           </Pressable>
-          <Pressable disabled accessibilityRole="button" accessibilityState={{ disabled: true }} style={styles.revert}>
-            <Text style={[styles.body, styles.expense]}>Reverter transação — indisponível</Text>
+          <Pressable onPress={() => setReversalOpen(true)} accessibilityRole="button" style={styles.revert}>
+            <Text style={[styles.body, styles.expense]}>Reverter transação</Text>
           </Pressable>
         </ScrollView>
       )}
+      <Modal visible={reversalOpen && !!transaction} transparent animationType="fade" onRequestClose={() => setReversalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Reverter transação?</Text>
+            <Text style={styles.modalText}>Esta transação deixará os registros financeiros ativos e não será mais considerada no saldo, orçamento ou relatórios. A reversão ficará registrada na auditoria.</Text>
+            <Text style={styles.modalSummary}>{transaction?.description} · {transaction && formatCurrency(transaction.amountCents)}</Text>
+            <View style={styles.modalActions}>
+              <Pressable accessibilityRole="button" style={styles.cancelButton} onPress={() => setReversalOpen(false)}>
+                <Text style={styles.cancelText}>Cancelar</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={styles.confirmButton} onPress={() => {
+                if (!transaction) return;
+                try {
+                  reverseTransaction(transaction.id);
+                  setReversalOpen(false);
+                  router.replace('/(tabs)/transacoes');
+                } catch (error) {
+                  Alert.alert('Não foi possível reverter', error instanceof Error ? error.message : 'Tente novamente.');
+                }
+              }}><Text style={styles.confirmText}>Reverter transação</Text></Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {recurrence && <RecurrenceConfigurationModal visible={recurrenceOpen}
+        value={recurrence.configuration} onCancel={() => setRecurrenceOpen(false)}
+        onSave={(configuration) => {
+          try {
+            updateRecurrence(recurrence.id, configuration);
+            setRecurrenceOpen(false);
+            setRevision((value) => value + 1);
+            if (transaction && !getTransactionById(transaction.id)) {
+              router.replace({ pathname: '/transacao/[id]', params: { id: recurrence.baseTransactionId } });
+            }
+          } catch (error) {
+            Alert.alert('Não foi possível atualizar', error instanceof Error ? error.message : 'Tente novamente.');
+          }
+        }} />}
+      <Modal visible={receiptOpen && canOpenReceipt} animationType="slide" onRequestClose={() => setReceiptOpen(false)}>
+        <SafeAreaView style={styles.receiptViewer}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Fechar comprovante" onPress={() => setReceiptOpen(false)}>
+            <Text style={styles.editText}>Fechar</Text>
+          </Pressable>
+          {receiptUri && <Image source={{ uri: receiptUri }} style={styles.receiptImage} resizeMode="contain" />}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -109,8 +165,20 @@ const styles = StyleSheet.create({
   secondary: { fontFamily: fontFamily.regular, fontSize: fontSize.caption, color: colors.textSecondary },
   details: { padding: 0, overflow: 'hidden' },
   receipt: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, minHeight: 44 },
+  receiptViewer: { flex: 1, padding: spacing.lg, backgroundColor: colors.background },
+  receiptImage: { flex: 1, width: '100%' },
   edit: { minHeight: 44, justifyContent: 'center', alignItems: 'center', borderRadius: radius.input, borderWidth: 0.5, borderColor: colors.primary, opacity: 0.5, padding: spacing.sm },
   editText: { fontFamily: fontFamily.medium, fontSize: fontSize.body, color: colors.primary, textAlign: 'center' },
-  revert: { minHeight: 44, justifyContent: 'center', alignItems: 'center', opacity: 0.5 },
+  revert: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(16,32,46,0.5)' },
+  modalCard: { padding: 22, gap: spacing.lg, borderRadius: radius.card, backgroundColor: colors.surface },
+  modalTitle: { fontFamily: fontFamily.bold, fontSize: 21, textAlign: 'center', color: colors.textPrimary },
+  modalText: { fontFamily: fontFamily.regular, fontSize: fontSize.body, lineHeight: 21, textAlign: 'center', color: colors.textSecondary },
+  modalSummary: { padding: spacing.lg, borderRadius: radius.input, backgroundColor: colors.background, fontFamily: fontFamily.medium, fontSize: fontSize.body, color: colors.textPrimary },
+  modalActions: { flexDirection: 'row', gap: spacing.sm },
+  cancelButton: { flex: 1, minHeight: 45, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: radius.input },
+  cancelText: { fontFamily: fontFamily.bold, fontSize: fontSize.body, color: colors.primary },
+  confirmButton: { flex: 1, minHeight: 45, alignItems: 'center', justifyContent: 'center', borderRadius: radius.input, backgroundColor: colors.negative },
+  confirmText: { fontFamily: fontFamily.bold, fontSize: fontSize.body, textAlign: 'center', color: colors.surface },
   empty: { padding: spacing.lg, fontFamily: fontFamily.regular, fontSize: fontSize.body, color: colors.textSecondary, textAlign: 'center' },
 });

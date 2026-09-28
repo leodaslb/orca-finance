@@ -69,8 +69,9 @@ export default function GoalsScreen() {
           </View>
           <View style={styles.metaRow}>
             <IconCalendar size={18} color={colors.navInactive} />
-            <Text style={styles.metaText}>Até {formatTransactionDate(goal.deadline)}</Text>
+            <Text style={styles.metaText}>{goal.isExpired ? `Prazo vencido em ${formatTransactionDate(goal.deadline)}` : `Até ${formatTransactionDate(goal.deadline)}`}</Text>
           </View>
+          {goal.isExpired && <Text style={styles.expiredText}>Meta não cumprida. Faltaram {formatCurrency(goal.remainingCents)}.</Text>}
           <View style={styles.metaRow}>
             <IconPigMoney size={18} color={colors.navInactive} />
             <Text style={styles.metaText}>
@@ -115,4 +116,5 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   metaText: { flex: 1, fontFamily: fontFamily.regular,
     fontSize: fontSize.caption, color: colors.textSecondary },
+  expiredText: { fontFamily: fontFamily.medium, fontSize: fontSize.body, color: colors.warning },
 });

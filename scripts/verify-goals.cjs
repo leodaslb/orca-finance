@@ -47,6 +47,12 @@ try {
     frequency: 'weekly',
   }), 19643);
 
+  const { formatDateInput, parseBrazilianDateToISO } = load('src/utils/date.ts');
+  assert.equal(formatDateInput('20122026'), '20/12/2026');
+  assert.equal(parseBrazilianDateToISO(formatDateInput('20122026')), '2026-12-20');
+  assert.equal(parseBrazilianDateToISO(formatDateInput('31022026')), null);
+  assert.equal(formatDateInput('20/12/2026'), '20/12/2026');
+
   const created = goalService.createGoal({
     name: '  Notebook novo  ',
     targetCents: 100000,
@@ -69,6 +75,17 @@ try {
   assert.equal(afterContribution.currentCents, 12345);
   assert.equal(afterContribution.contributions[0].id, contribution.id);
   assert.equal(afterContribution.suggestionCents, 2922);
+
+  goalsMock.find((item) => item.id === created.id).deadline = '2026-09-12';
+  const expired = goalService.getGoalById(created.id);
+  assert.equal(expired.isExpired, true);
+  assert.equal(expired.remainingCents, 87655);
+  assert.equal(expired.suggestionCents, null);
+  const extended = goalService.updateGoalDeadline(created.id, '2026-10-13');
+  assert.equal(extended.isExpired, false);
+  assert.equal(extended.currentCents, 12345);
+  assert.equal(extended.suggestionCents, 2922);
+  assert.throws(() => goalService.updateGoalDeadline(created.id, '2026-09-12'));
 
   const dashboardBefore = getDashboardData();
   const transactionCount = transactionsMock.length;

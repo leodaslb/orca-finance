@@ -31,7 +31,7 @@ interface TransactionItemProps {
   categoryName: string;
   dateLabel?: string;
   variant?: 'dashboard' | 'list';
-  status?: 'effective' | 'scheduled';
+  status?: 'effective' | 'scheduled' | 'reflection';
   amountCents: number;
   type: 'income' | 'expense';
   showDivider?: boolean;
@@ -192,6 +192,9 @@ export function TransactionItem({
             Prevista
           </Text>
         )}
+        {status === 'reflection' && (
+          <Text style={styles.meta}>Em reflexão · não contabilizada</Text>
+        )}
       </View>
 
       <Text
@@ -200,9 +203,10 @@ export function TransactionItem({
           isExpense
             ? styles.expense
             : styles.income,
+          status === 'reflection' && styles.reflectionAmount,
         ]}
       >
-        {isExpense ? '- ' : '+ '}
+        {status === 'reflection' ? '' : isExpense ? '- ' : '+ '}
         {formatCurrency(amountCents)}
       </Text>
 
@@ -237,6 +241,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginBottom: spacing.xs,
   },
+
+  reflectionAmount: { color: colors.warning },
 
   container: {
     minHeight: 66,

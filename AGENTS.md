@@ -1,281 +1,182 @@
 # AGENTS.md — Orca Finance Mobile
 
-## Papel
-Atue como engenheiro de software do projeto acadêmico Orca Finance Mobile.
-Implemente somente o que estiver sustentado por requisitos, backlog, regras de negócio, fluxo de telas, Design System, arquitetura, task file e PNG de referência.
+## Projeto
 
-Preserve rastreabilidade:
-RF → User Story → Regra de negócio → Task → Implementação → Teste
+Orca Finance Mobile é um projeto acadêmico FATEC desenvolvido com:
 
-## Fontes de verdade
-Antes de alterar código, leia as fontes relevantes em `docs/` e `references/`.
-
-Ordem:
-1. Requisitos originais
-2. Backlog revisado RF ↔ US
-3. Regras de negócio consolidadas
-4. Fluxo de telas da Sprint 1
-5. Design System atualizado
-6. Arquitetura Frontend
-7. Task file do bloco atual
-8. PNG de referência
-9. Código existente
-
-Se houver conflito, não invente solução silenciosamente. Registre a divergência.
-Se algo não estiver definido, trate como decisão pendente.
-
-## Arquitetura
-Stack:
 - React Native
 - Expo
 - TypeScript
 - Expo Router
-- StyleSheet
-- Manrope
-- Tabler Icons
+- Android como plataforma prioritária
 
-Fluxo:
-Screen / Route → Service → Mock Data Source
+Atue como engenheiro de software mantendo o projeto simples,
+rastreável e explicável tecnicamente.
+
+## Antes de alterar código
+
+Sempre:
+
+1. inspecione o código atual;
+2. consulte os documentos do domínio afetado;
+3. verifique RN/US/RF vigentes;
+4. confira PNG de referência quando houver UI;
+5. procure componentes, types, services e testes existentes antes de criar novos.
+
+Não confie em resumos antigos se o repositório/documentação atual disser outra coisa.
+
+## Fontes de verdade
+
+Para regra funcional, consulte nesta ordem:
+
+1. `docs/RequisitosMobile.txt`
+2. `docs/Orca_Finance_Backlog_Revisado_Final_RF_US.xlsx`
+   - principalmente `Backlog Revisado` e `RN sincronizadas`
+3. `docs/Orca_Finance_Regras_de_Negocio_Revisadas_Consolidada_ok.xlsx`
+
+Para fluxo/UX:
+
+1. RN e backlog vigentes
+2. `docs/Orca_Finance_Fluxo_de_Telas_Sprint1.md`
+3. `docs/Orca_Finance_Design_System_Atualizado.md`
+4. PNG em `references/`
+
+Para arquitetura:
+
+- `docs/Orca_Finance_Arquitetura_Frontend.md`
+
+Decisões consolidadas mais novas prevalecem sobre propostas/documentos antigos.
+
+## Regra principal
+
+Não invente requisito ou regra de negócio.
+
+Se algo não estiver definido:
+
+- implemente somente o que não estiver bloqueado;
+- mantenha a solução reversível;
+- registre a pendência no relatório.
+
+Não transforme recomendação de UX em regra obrigatória.
+
+## Rastreabilidade
+
+Preserve:
+
+RF → US → RN → implementação → teste
+
+Ao implementar uma funcionalidade, identifique primeiro seus RF/US/RN.
+
+## Arquitetura
+
+Arquitetura atual:
+
+Screen / Route
+→ Service
+→ Mock Data Source
 
 Regras:
-- `src/app` deve ficar enxuto;
-- tela não importa mock diretamente;
-- service concentra acesso aos dados;
-- não criar Repository/ViewModel/store global sem necessidade concreta;
-- estado local primeiro;
+
+- telas não importam mocks diretamente;
+- regra de negócio não fica em componente puramente visual;
+- `src/app` deve permanecer focado em rota/composição;
+- estado local é a primeira opção;
+- não criar store global sem necessidade real;
 - não duplicar datasets;
-- adaptar código existente antes de criar estrutura paralela;
-- não adicionar dependências sem necessidade clara.
+- adaptar código existente antes de criar arquitetura paralela.
 
-## Domínio financeiro
-Dinheiro no frontend usa centavos inteiros.
-Ex.: R$ 187,50 → `18750`.
+## Simplicidade
 
-Não usar float/double para cálculos financeiros.
+Evite overengineering.
 
-Usar IDs estáveis:
-- `tx-001`
-- `category-food`
-- `subcategory-supermarket`
+Não introduza sem necessidade concreta:
 
-Descrição é a identificação principal da transação.
-Não criar `title`/`name` paralelo.
+- Redux/Zustand;
+- Clean Architecture completa;
+- Repository/ViewModel/DTO em cadeia;
+- wrappers genéricos;
+- hooks/helpers usados uma única vez sem ganho claro;
+- dependências novas.
 
-Campos atuais da transação:
-- type
-- amountCents
-- date
-- time
-- description
-- categoryId
-- subcategoryId
-- paymentMethod
-- tags
-- notes
-- essentiality
-- receiptUri
-- status
+Prefira a solução mínima que preserve a arquitetura atual.
 
-Categoria pode ser nula no domínio/importação, mas no cadastro manual pelo app é obrigatória.
+## Domínio
 
-RN-TRANS-01:
-saldo atual = saldo inicial + receitas efetivadas - despesas efetivadas.
-Transações futuras não afetam saldo atual.
+Valores monetários usam centavos inteiros quando o modelo atual assim definir.
 
-RN-TRANS-04:
-lançamento futuro fica programado/previsto e não entra no saldo atual antes da data.
+Use IDs estáveis para entidades e rotas.
 
-Reversão:
-não criar transação inversa. Preservar auditoria conforme regras existentes.
+Não localizar entidade por texto visível ou posição no array.
 
-## Design System
-Usar tokens de `src/theme`.
-Não espalhar hexadecimais.
-Fonte: Manrope.
-Ícones: Tabler outline.
-Evitar gradientes, sombras pesadas e novas bibliotecas visuais.
+Dados relacionados devem vir do mesmo dataset/service.
 
-Quando existir PNG aprovado, comparar diretamente com ele.
-Não adicionar campo/ação sem fonte.
+## UI
 
-## Navegação
-Bottom nav oficial:
-Início | Transações | + | Planejamento | Relatórios
+Use:
 
-`+` abre Nova Transação.
-Perfil/Configurações fica fora da bottom nav.
+- tokens de `src/theme`;
+- Manrope;
+- Tabler Icons;
+- Design System existente.
 
-Detalhes usam IDs estáveis:
-- `/transacao/[id]`
-- `/metas/[id]`
+Não hardcode valor financeiro que possa ser derivado do dataset.
 
-Evitar `as any` em rotas.
-Tratar fallback quando `router.back()` não tiver histórico.
+Quando houver PNG, preserve sua linguagem visual sem contrariar regra de negócio vigente.
 
-## Estado atual
-Já existem:
-- Dashboard
-- Lista de Transações
-- Detalhe da Transação
-- formulário visual de Nova Transação
-- transaction service de leitura
-- mocks centralizados
-- categorias/subcategorias
-- busca textual
-- infraestrutura parcial de filtros
+## Autonomia
 
-Não reimplementar essas telas do zero.
+Pode decidir sozinho decisões técnicas locais e reversíveis, como:
 
-## Cadastro de Transação
-Tela: `03_transacao_cadastro.png`
+- nomes privados;
+- helpers;
+- tipos auxiliares;
+- organização interna;
+- pequenas refatorações;
+- scripts de teste.
 
-RF/US:
-- RF01 / US01
-- RF21, RF36, RF58 / US02
-- RF12 / US19
-- RF20, RF64 / US24
-- integração com US12
+Peça decisão somente quando houver mudança de produto,
+regra de negócio, arquitetura relevante ou dependência externa importante.
 
-Obrigatórios no cadastro manual:
-- tipo
-- valor
-- data
-- hora
-- descrição
-- categoria
-
-Complementares:
-- subcategoria
-- método de pagamento
-- tags
-- classificação/essencialidade
-- recibo
-- recorrência/lembrete
-
-Não tornar complementares obrigatórios sem fonte.
-
-Subcategoria só deve aparecer quando houver opções para a categoria.
-
-## Pendências que não podem ser resolvidas implicitamente
-Não decidir sozinho:
-- destino definitivo após salvar transação;
-- edição inline vs reutilização do formulário;
-- duração do período de reflexão;
-- lista definitiva de itens em reflexão;
-- efeito de editar/cancelar recorrência sobre ocorrências futuras;
-- política completa de notificações;
-- campos definitivos do snapshot de auditoria;
-- persistência/backend definitivo;
-- estados visuais ainda não formalizados.
-
-Se uma task depender disso, implemente somente a infraestrutura segura e marque como parcial/bloqueada.
-
-## Recibo, recorrência e reflexão
-Recibo:
-- US19/RF12: associar foto à transação.
-- Não implementar OCR nessa task.
-
-Recorrência:
-formulário → configuração → retorno preservando estado.
-Não inventar frequência/regra ausente.
-
-Reflexão:
-despesa + não essencial → fluxo de reflexão antes de concluir.
-Item em reflexão não é transação concluída.
-
-## Qualidade
-Antes de criar novo arquivo, verificar se um existente pode ser adaptado.
-
-Evitar:
-- componentes minúsculos sem reutilização;
-- hooks/helpers prematuros;
-- overengineering;
-- duplicação de tipos;
-- regra de negócio em componente puramente visual.
+Se uma parte estiver bloqueada, continue as demais.
 
 ## Testes
-Quando aplicável:
-`npx tsc --noEmit`
 
-Se houver lint configurado:
-`npm run lint`
+Após mudanças relevantes, execute quando aplicável:
 
-Não instalar ESLint só para satisfazer a task.
+npx tsc --noEmit
+node scripts de verificação relacionados
+git diff --check
 
-Android Emulator é a validação visual prioritária.
+Use `npm run lint` somente se o lint estiver configurado.
 
-Sempre verificar regressão em:
-- Dashboard
-- Lista
-- Detalhe
-- navegação afetada
+Android Emulator é a referência final de validação visual.
+Não declare teste não executado como aprovado.
 
-## Erros preexistentes
-Não criar arquivos duplicados para mascarar erro fora do escopo.
-Registrar erros preexistentes separadamente.
+## Regressões
 
-## Execução por lotes
-O usuário pode passar 2–3 etapas por execução.
-Faça apenas as tasks pedidas e dependências técnicas indispensáveis.
-Não avance automaticamente para blocos seguintes.
+Ao alterar service, type ou mock compartilhado,
+verifique todos os consumidores relevantes.
 
-## Relatório final obrigatório
-### Tasks concluídas
-### Tasks parciais/bloqueadas
-### Arquivos criados
-### Arquivos modificados
-### Rastreabilidade
-RF → US → RN → Task → implementação
-### Testes executados
-### Regressões verificadas
-### Pendências
-### Divergências PNG x requisito x dados
+Não faça limpeza/refatoração fora do escopo sem necessidade.
 
-## Autonomia de execução
+## Git
 
-Quando o usuário fornecer uma etapa/bloco funcional, execute todas as tasks
-necessárias e não bloqueadas para completar esse bloco de ponta a ponta.
+Preserve alterações existentes do usuário.
 
-Você pode, sem pedir confirmação:
+Não faça reset destrutivo, descarte de mudanças,
+force push ou atualização de dependências sem solicitação.
 
-- criar ou adaptar componentes necessários;
-- complementar services existentes;
-- adicionar tipos auxiliares necessários;
-- criar rotas previstas nos documentos;
-- conectar telas já documentadas;
-- implementar validações explicitamente derivadas dos RF/RN;
-- corrigir regressões causadas pelo próprio bloco;
-- refatorar localmente quando reduzir duplicação sem alterar arquitetura;
-- criar scripts/testes técnicos compatíveis com a estrutura atual.
+## Relatório final
 
-Não interrompa a execução apenas porque uma task intermediária terminou.
+Informe objetivamente:
 
-Pare ou deixe parcial somente quando houver:
+- concluído;
+- parcial/bloqueado;
+- arquivos criados/modificados;
+- RF → US → RN → implementação → teste;
+- testes executados;
+- regressões verificadas;
+- pendências atuais;
+- divergências documentais.
 
-- decisão de negócio explicitamente pendente;
-- conflito entre fontes oficiais;
-- necessidade de dependência nova relevante;
-- mudança arquitetural;
-- comportamento que não possa ser deduzido das fontes.
-
-Quando houver uma decisão pendente que não bloqueia o restante do bloco,
-isole essa parte e continue implementando o que estiver definido.
-
-
-## Regra de iniciativa
-
-Não pedir confirmação para decisões técnicas triviais e reversíveis.
-
-Exemplos que o agente pode decidir sozinho:
-
-- nome de função privada;
-- organização interna de StyleSheet;
-- extração de componente quando o arquivo ficar excessivamente grande;
-- tratamento defensivo de null;
-- reutilização de helper existente;
-- ordem interna de implementação;
-- criação de tipos auxiliares;
-- testes técnicos para comportamento já especificado.
-
-Isso não se aplica a regra de negócio ou decisão de produto.
-Não declarar task completa sem executar a validação necessária.
+Não liste como pendente algo que a fonte vigente já consolidou.

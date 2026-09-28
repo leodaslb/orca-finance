@@ -18,9 +18,10 @@ import { colors, fontFamily, fontSize, radius, spacing } from '@/theme';
 import { formatCurrency } from '@/utils/currency';
 
 function periodLabel(periodKey: string) {
-  return new Intl.DateTimeFormat('pt-BR', {
+  const label = new Intl.DateTimeFormat('pt-BR', {
     month: 'long', year: 'numeric', timeZone: 'UTC',
   }).format(new Date(`${periodKey}-01T00:00:00Z`));
+  return label.charAt(0).toLocaleUpperCase('pt-BR') + label.slice(1);
 }
 
 export default function PlannedVsActualScreen() {
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
   selector: { minHeight: 50, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', paddingHorizontal: spacing.lg, borderWidth: 0.5,
     borderColor: colors.border, borderRadius: radius.card, backgroundColor: colors.surface },
-  selectorText: { textTransform: 'capitalize', fontFamily: fontFamily.medium,
+  selectorText: { fontFamily: fontFamily.medium,
     fontSize: fontSize.body, color: colors.textPrimary },
   summaryCard: { gap: spacing.lg, padding: 20 },
   cardTitle: { fontFamily: fontFamily.bold, fontSize: fontSize.title, color: colors.textPrimary },

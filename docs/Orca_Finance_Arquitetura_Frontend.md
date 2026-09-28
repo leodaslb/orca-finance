@@ -2,7 +2,7 @@
 
 > Documento de decisão técnica para a implementação do front-end do Orca Finance.
 >
-> Escopo atual: primeira entrega acadêmica focada na implementação, navegação e validação das telas no Android. Este documento não redefine requisitos de produto; ele organiza tecnicamente as decisões já tomadas no projeto e explicita as pendências que ainda não devem ser tratadas como definitivas.
+> Escopo atual: Sprint 1 com 18 User Stories, incluindo cadastro/autenticação de conta (US60), focada na implementação, navegação e validação das telas no Android. Este documento não redefine requisitos de produto; ele organiza tecnicamente as decisões já consolidadas e mantém explícitas somente as pendências técnicas ou de UX ainda abertas.
 
 ---
 
@@ -18,25 +18,31 @@ A estrutura deve permitir que, em etapas futuras, a fonte de dados mockada seja 
 
 A implementação deve respeitar, nesta ordem de responsabilidade:
 
-1. requisitos funcionais do projeto;
-2. backlog revisado e vínculos RF → US;
-3. regras de negócio revisadas;
-4. fluxo de telas da Sprint 1;
-5. Design System atualizado;
-6. este documento de arquitetura front-end.
+1. requisitos funcionais originais do projeto;
+2. regras de negócio consolidadas;
+3. backlog revisado e vínculos RF → US;
+4. priorização/sprints vigente;
+5. fluxo de telas da Sprint 1;
+6. Design System atualizado;
+7. este documento de arquitetura front-end.
 
-Este documento define **como implementar** o front-end. Ele não pode criar comportamento funcional que não exista nas fontes acima.
+Este documento define **como implementar** o front-end. Ele não pode criar comportamento funcional que não exista nas fontes acima. Quando houver divergência entre uma regra de negócio consolidada e um documento visual ainda não sincronizado, a regra consolidada prevalece para o comportamento funcional, e o documento visual deve ser atualizado.
 
 ---
 
 ## 3. Escopo da primeira entrega
 
+A Sprint 1 vigente contém 18 User Stories:
+
+`US01, US02, US03, US05, US06, US10, US12, US13, US14, US15, US19, US24, US29, US37, US40, US44, US45 e US60`.
+
 A primeira entrega prioriza:
 
 - implementação visual das telas já definidas;
 - navegação entre telas e estados complementares;
+- cadastro/login da US60 com comportamento simulado enquanto não houver backend real;
 - reutilização de componentes;
-- aplicação fiel do Design System;
+- aplicação fiel do Design System, respeitando as regras de negócio consolidadas;
 - uso de dados mockados centralizados;
 - estados necessários para demonstrar os fluxos previstos;
 - execução e validação no Android Emulator.
@@ -47,13 +53,14 @@ Nesta fase, não é necessário implementar de forma definitiva:
 - API remota;
 - banco de dados definitivo;
 - sincronização entre dispositivos;
-- autenticação remota real;
+- autenticação remota real no servidor;
 - notificações push reais;
 - exportação real de arquivos;
-- câmera/OCR reais, exceto se exigidos posteriormente para demonstração;
-- regras de negócio ainda marcadas como pendentes.
+- câmera/OCR reais, exceto se exigidos posteriormente para demonstração.
 
-Quando uma funcionalidade real ainda não existir, a tela pode simular seu estado visual utilizando os mocks, desde que não introduza nova regra de negócio.
+A US60 deve ser demonstrável por uma camada de autenticação mockada, preservando suas regras funcionais: nome, e-mail e senha obrigatórios; e-mail como identificador único de login; criação automática do primeiro perfil com saldo R$ 0 e moeda-base BRL.
+
+Quando uma integração real ainda não existir, a tela pode simular seu estado utilizando services/mocks, desde que não introduza nova regra de negócio.
 
 ---
 
@@ -258,6 +265,7 @@ Os arquivos serão TypeScript e podem ser divididos por domínio:
 
 ```text
 data/mocks/
+├── account.mock.ts
 ├── profile.mock.ts
 ├── transactions.mock.ts
 ├── categories.mock.ts
@@ -291,11 +299,26 @@ Deve concentrar pelo menos:
 Contratos TypeScript compartilhados.
 
 Exemplos:
+- `Account`;
+- `AuthSession`;
+- `Profile`;
 - `Transaction`;
 - `Category`;
 - `Budget`;
 - `Goal`;
 - tipos auxiliares de filtros e períodos.
+
+No contrato `Transaction`, o RF36/US02 exige um campo de anotação separado da descrição. Conceitualmente:
+
+```ts
+interface Transaction {
+  // demais campos do domínio...
+  description: string;
+  annotation?: string;
+}
+```
+
+`description` continua sendo o texto principal/obrigatório do cadastro manual; `annotation` é opcional e deve ser preservado pelo mock/service, exibido no detalhe quando existir e editável sem alterar a descrição. O limite de caracteres não deve ser inventado sem requisito ou decisão posterior.
 
 Evitar duplicar interfaces equivalentes em múltiplos arquivos.
 
@@ -393,8 +416,8 @@ A arquitetura visual usa três formas de transição:
 
 Bottom sheets já definidos no projeto:
 
-- login;
-- criação de conta;
+- login da US60;
+- criação de conta da US60;
 - filtros de transação;
 - registrar aporte;
 - exportar dados.
@@ -406,6 +429,8 @@ Modal de confirmação já definido:
 ### 8.3 Organização das rotas com Expo Router
 
 A navegação deve refletir o fluxo oficial usando a convenção de arquivos do Expo Router.
+
+O `index.tsx` da raiz funciona como porta de entrada: sem sessão autenticada, apresenta Boas-vindas/Login/Cadastro; com sessão autenticada, encaminha para o contexto do perfil ativo e para `(tabs)`. Login e criação de conta podem permanecer como bottom sheets locais da tela de entrada, sem exigir rotas independentes.
 
 Estrutura conceitual:
 
@@ -509,10 +534,16 @@ Os mocks devem usar IDs estáveis para permitir navegação e relacionamento ent
 Exemplo conceitual:
 
 ```text
+account.id → perfis pertencentes à conta
+session.accountId → account.id
+activeProfileId → profile.id
+transaction.profileId → profile.id
 transaction.categoryId → category.id
+goal.profileId → profile.id
 goal.id → detalhe/aportes da meta
-profile.id → dados do dashboard/período
 ```
+
+No cadastro mockado da US60, o primeiro perfil é criado automaticamente a partir do nome da conta/usuário, inicia sem dados financeiros, com saldo `R$ 0` e moeda-base `BRL`.
 
 Isso evita encontrar uma transação por texto/posição de array e aproxima o fluxo do comportamento de uma API real.
 
@@ -543,11 +574,36 @@ Caso seja necessário demonstrar “criar”, “editar”, “aportar” ou “
 
 Essa simulação deve ser claramente separada da persistência definitiva e não deve criar regras além das previstas no backlog/regras de negócio.
 
+### 10.4 Sessão autenticada e perfil ativo
+
+Com a inclusão da US60, `sessão autenticada`, `accountId` e `activeProfileId` passam a ser estado compartilhado real entre a entrada do aplicativo e as áreas autenticadas.
+
+Para a Sprint 1, a solução recomendada é um **React Context leve no layout raiz**, sem biblioteca externa de estado global.
+
+Motivo e trade-off:
+
+- estado local não é suficiente, pois sessão e perfil ativo são consumidos por múltiplas rotas;
+- Context nativo resolve o escopo atual com pouca complexidade;
+- Redux/Zustand ou solução equivalente continua desnecessária enquanto não existir volume maior de estado global.
+
+Responsabilidades mínimas do contexto de sessão:
+
+```text
+signIn(email, senha)
+signUp(nome, email, senha)
+signOut()
+account
+activeProfileId
+setActiveProfile(profileId)
+```
+
+Nesta entrega, `signIn` e `signUp` podem delegar para um `authService` mockado. A futura troca por backend não deve exigir que as telas conheçam diretamente a fonte de autenticação.
+
 ---
 
 ## 11. Estados de interface
 
-O Design System identifica como ainda não formalizados visualmente:
+Alguns **estados visuais** ainda não possuem representação final no Design System:
 
 - loading;
 - empty state;
@@ -557,9 +613,9 @@ O Design System identifica como ainda não formalizados visualmente:
 - indisponibilidade de biometria;
 - permissão de câmera/notificação negada;
 - falha de exportação;
-- meta vencida não concluída.
+- apresentação visual de meta vencida não concluída.
 
-Para a entrega de telas, implementar esses estados apenas quando necessários ao fluxo apresentado. O comportamento visual pode ser padronizado, mas nenhuma regra de negócio pendente deve ser inferida.
+A regra de negócio da meta vencida já está consolidada: informar que a meta não foi atingida e o valor faltante; o usuário pode alterar a data-limite para continuar, recalculando a sugestão. Portanto, o que permanece aberto aqui é somente a apresentação visual desses estados.
 
 ---
 
@@ -568,43 +624,48 @@ Para a entrega de telas, implementar esses estados apenas quando necessários ao
 A implementação deverá preservar o encadeamento:
 
 ```text
-RF → User Story → Tela/Estado → Componente → Task → Implementação → Teste
+RF / decisão de produto → User Story → Regra de negócio → Tela/Estado → Componente → Task → Implementação → Teste
 ```
 
-Mapa inicial das telas principais com vínculos já confirmados nas fontes do projeto:
+A US60 é a exceção metodológica desta versão: ela foi adicionada depois dos 71 RFs originais e, portanto, deve ser rastreada como **User Story sem RF original explícito**, vinculada às RN-ID-01, RN-ID-02, RN-ID-03 e RN-ID-04 e com impacto em RF11, RF16 e RF48. Não criar RF72 implicitamente.
 
-| Domínio/Tela | RF principal(is) | User Story | RN vinculadas no backlog | Teste front-end mínimo nesta entrega |
+Mapa das 18 User Stories da Sprint 1:
+
+| Domínio/Tela | RF principal(is) | User Story | RN vinculadas | Teste front-end mínimo nesta entrega |
 |---|---|---|---|---|
-| Nova transação | RF01 | US01 | RN-TRANS-01, RN-TRANS-02 | renderização, preenchimento, validação visual e ação de salvar/mock |
-| Detalhamento da transação | RF21, RF36, RF58 | US02 | nenhuma RN específica | renderizar dados complementares e estados previstos |
-| Lista/busca/filtros | RF13, RF58 | US03 | nenhuma RN específica | busca/filtro atualiza a lista mockada conforme critérios implementados |
-| Categorias/subcategorias | RF02 | US05 | RN-CAT-01 | expandir categoria e acessar criação de subcategoria |
-| Orçamento mensal | RF03, RF24 | US06 | RN-ORC-01, RN-ORC-02 | exibir limites/progresso e estados semânticos corretamente |
-| Metas | RF04 | US10 | RN-META-01, RN-META-02 | lista → detalhe → criação/aporte usando mesmo dataset |
-| Reflexão antes da compra | RF05, RF70 | US12 | RN-CAT-02, RN-REF-01, RN-REF-03 | despesa não essencial alcança o fluxo de reflexão |
-| Relatórios | RF06 | US13 | nenhuma RN específica | período altera dados/gráficos mockados previstos |
+| Nova transação | RF01 | US01 | RN-TRANS-01, RN-TRANS-02 | preencher obrigatórios, salvar mock e refletir novo registro |
+| Detalhamento da transação | RF21, RF36, RF58 | US02 | nenhuma RN específica | cadastrar/exibir/editar tags, **anotação**, método de pagamento e classificações; anotação é opcional e distinta da descrição |
+| Lista/busca/filtros | RF13, RF58 | US03 | nenhuma RN específica | busca/filtro atualiza a lista mockada |
+| Categorias/subcategorias | RF02 | US05 | RN-CAT-01 | expandir categoria e criar subcategoria |
+| Orçamento mensal | RF03, RF24 | US06 | RN-ORC-01, RN-ORC-02 | 75% inicia estado de proximidade; >100% excedido |
+| Metas | RF04 | US10 | RN-META-01, RN-META-02 | lista → detalhe → criação/aporte; meta vencida informa faltante |
+| Reflexão antes da compra | RF05, RF70 | US12 | RN-CAT-02, RN-REF-01, RN-REF-03 | não essencial alcança reflexão; padrão 48h configurável |
+| Relatórios | RF06 | US13 | nenhuma RN específica | período altera dados/gráficos mockados |
 | Exportação | RF07, RF28 | US14 | nenhuma RN específica | abrir/fechar bottom sheet e selecionar formato |
-| Dashboard | RF08 | US15 | RN-TRANS-01, RN-META-01 | dados consistentes com transações/metas do mesmo mock |
-| Recibo | RF12 | US19 | nenhuma RN específica | ação/estado de comprovante presente no fluxo visual |
-| Recorrência/lembrete | RF20, RF64 | US24 | RN-TRANS-04, RN-NOT-01, RN-REC-01 | formulário → configuração → retorno com estado preservado |
-| Limites e alertas | RF27, RF54 | US29 | RN-NOT-01, RN-NOT-02, RN-LIM-01 | configurar estado visual e salvar mock/local |
-| Bloqueio local | RF48 | US37 | nenhuma RN específica | alternância biometria ↔ PIN conforme fluxo definido |
-| Planejado x realizado | RF55 | US40 | nenhuma RN específica | período e dados exibidos de forma consistente |
-| Gastos livres | RF57 | US45 | RN-ORC-02, RN-ORC-05 | exibir/alterar cota sem inferir como transação consome a cota |
+| Dashboard | RF08 | US15 | RN-TRANS-01, RN-META-01 | dados consistentes do mesmo perfil/mock |
+| Recibo | RF12 | US19 | nenhuma RN específica | ação/estado de comprovante presente no fluxo |
+| Recorrência/lembrete | RF20, RF64 | US24 | RN-TRANS-04, RN-NOT-01, RN-REC-01 | salvar recorrência; alteração/cancelamento afeta somente futuro |
+| Limites e alertas | RF27, RF54 | US29 | RN-NOT-01, RN-NOT-02, RN-LIM-01 | limite diário e regra de categoria com parâmetros do usuário |
+| Bloqueio local | RF48 | US37 | separação de RN-ID-01 | alternância biometria ↔ PIN sem substituir login remoto |
+| Planejado x realizado | RF55 | US40 | RN-ORC-02 | período e dados exibidos de forma consistente |
+| Reversão de transação | RF40 | US44 | RN-TRANS-03, RN-AUD-01 | confirmação remove registro ativo e preserva snapshot de auditoria |
+| Gastos livres | RF57 | US45 | RN-ORC-02, RN-ORC-05 | somente despesa explicitamente marcada consome cota mensal |
+| Cadastro/autenticação | sem RF original explícito | US60 | RN-ID-01, RN-ID-02, RN-ID-03, RN-ID-04 | cadastro/login mockado; e-mail único; primeiro perfil automático BRL/R$0 |
 
-Os critérios de aceitação detalhados devem continuar sendo consultados no backlog oficial durante a implementação de cada User Story. Este documento não os substitui.
+Os critérios de aceitação detalhados devem ser derivados dessas fontes no refinamento de cada User Story. Este documento não substitui o backlog.
 
 ---
 
 ## 13. Pendências que não devem ser resolvidas implicitamente no código
 
-### 13.1 Técnicas
+### 13.1 Técnicas não bloqueantes
 
 - biblioteca de testes automatizados;
-- necessidade futura de estado global;
-- registrar no documento a versão do Expo SDK efetivamente utilizada após o bootstrap do projeto.
+- versão efetivamente utilizada do Expo SDK, a registrar após o bootstrap;
+- backend/autenticação remota real e persistência definitiva;
+- necessidade futura de biblioteca de estado global além do Context de sessão.
 
-**TypeScript e Expo Router já estão definidos e não são mais pendências.**
+**TypeScript, Expo Router e Context leve para sessão/perfil ativo já estão definidos para a Sprint 1.**
 
 ### 13.2 UX/navegação
 
@@ -612,18 +673,25 @@ Os critérios de aceitação detalhados devem continuar sendo consultados no bac
 - destino definitivo após criar transação;
 - destino definitivo após criar meta;
 - tela/lista de itens em reflexão;
+- modal/tela final de criar/editar subcategoria;
 - tela-hub formal de Perfil/Configurações.
 
-### 13.3 Produto/regra de negócio
+Esses itens são decisões de UX e não reabrem as regras de negócio.
 
-- como uma despesa passa a consumir a cota de gastos livres;
-- duração padrão do período de reflexão e possibilidade de alteração;
-- se editar/cancelar recorrência afeta somente ocorrências futuras;
-- comportamento definitivo de meta vencida não concluída;
-- detalhes do snapshot de auditoria da reversão;
-- período padrão de determinados limites por categoria, conforme RN-LIM-01.
+### 13.3 Regras de negócio da Sprint 1
 
-Quando uma dessas decisões for tomada, atualizar primeiro a fonte correspondente (backlog, regras, fluxo ou Design System, conforme o caso) e depois refletir a decisão neste documento.
+Não há, na versão consolidada atual, regra de negócio bloqueante para iniciar a Sprint 1. Foram fechadas, entre outras, as decisões de:
+
+- consumo explícito da cota de gastos livres;
+- reflexão com duração padrão de 48h configurável;
+- recorrência alterando somente ocorrências futuras;
+- comportamento de meta vencida;
+- auditoria com snapshot integral antes da exclusão;
+- limites configuráveis com período/base definidos por regra;
+- cadastro com nome, e-mail e senha e e-mail único como login;
+- criação automática do primeiro perfil com saldo R$ 0 e BRL.
+
+Quando surgir lacuna durante a implementação, verificar primeiro requisito, RN e US antes de registrar nova decisão.
 
 ---
 
@@ -668,6 +736,15 @@ RF13
 → Bottom sheet de filtros
 → aplicar filtros
 → lista atualizada
+```
+
+Para a US60, validar ao menos:
+
+```text
+Cadastro válido → cria conta mockada → cria primeiro perfil BRL/R$0 → abre Início
+E-mail duplicado → cadastro recusado com erro de validação
+Login válido → cria sessão → seleciona/ativa perfil → abre área autenticada
+Bloqueio biométrico/PIN → protege acesso local, sem substituir login de conta
 ```
 
 ### 14.3 Testes automatizados
@@ -721,16 +798,26 @@ Uma tela pode ser considerada pronta para a entrega visual quando:
 | Expo | Definido |
 | Android como plataforma prioritária da entrega | Definido |
 | Android Emulator para validação | Definido |
+| Sprint 1 com 18 US, incluindo US60 | Definido |
 | Bottom nav: Início / Transações / + / Planejamento / Relatórios | Definido |
 | Perfil/Configurações fora da bottom nav | Definido |
-| Design System atualizado como fonte visual | Definido |
+| Design System como fonte visual, subordinado às RN para comportamento funcional | Definido |
 | Dataset mock centralizado | Definido |
-| Tela desacoplada do arquivo de mock por camada de acesso | Definido |
+| Tela desacoplada do arquivo de mock por camada de service | Definido |
 | Estado local como primeira opção | Diretriz arquitetural |
+| Sessão + perfil ativo em React Context leve | Definido para Sprint 1 |
 | TypeScript | Definido |
 | Expo Router | Definido |
 | Rotas baseadas em arquivos (`src/app`) | Definido |
 | Parâmetros de detalhe por ID estável | Definido |
+| Conta autenticada → um ou mais perfis | Regra consolidada |
+| E-mail como login único | Regra consolidada |
+| Primeiro perfil automático, BRL e saldo R$ 0 | Regra consolidada |
+| Gastos livres somente por marcação explícita | Regra consolidada |
+| Proximidade do orçamento inicia em 75% | Regra consolidada |
+| Reflexão padrão 48h, configurável | Regra consolidada |
+| Recorrência: alterações/cancelamentos somente no futuro | Regra consolidada |
+| Reversão: exclusão do registro ativo + snapshot integral de auditoria | Regra consolidada |
 | Expo SDK | Registrar versão usada no bootstrap |
 | Biblioteca de testes | Pendente / não bloqueante |
 
@@ -746,10 +833,12 @@ Não há decisão arquitetural bloqueante restante para iniciar as telas. Antes 
 4. configurar a fonte Manrope conforme o Design System;
 5. configurar uma implementação compatível dos Tabler Icons em estilo outline;
 6. criar os tokens iniciais em `theme/` antes de espalhar estilos pelas telas;
-7. criar os primeiros tipos TypeScript e o dataset mock centralizado;
-8. criar a camada de `services` que consulta os mocks;
-9. implementar primeiro a estrutura da bottom navigation;
-10. validar cada tela no Android Emulator, usando web apenas como apoio.
+7. criar os tipos iniciais (`Account`, `AuthSession`, `Profile`, `Transaction`, `Category`, `Budget`, `Goal`);
+8. criar dataset mock centralizado e services, incluindo `authService` mockado;
+9. criar o Context de sessão/perfil ativo no layout raiz;
+10. implementar Boas-vindas/Login/Cadastro da US60 e o redirecionamento autenticado;
+11. implementar a estrutura da bottom navigation;
+12. validar cada tela no Android Emulator, usando web apenas como apoio.
 
 ### 18.1 O que não precisa ser decidido agora
 

@@ -1,6 +1,6 @@
 # Orca Finance — Fluxo de Telas da Sprint 1
 
-> Documento de navegação e rastreabilidade visual/funcional. Objetivo: deixar explícito **qual tela leva a qual**, quais ações abrem novas telas, quais ações abrem modal/bottom sheet e quais comportamentos ainda são decisão pendente.
+> Documento de navegação e rastreabilidade visual/funcional da Sprint 1 atual, composta por 18 User Stories. Objetivo: deixar explícito **qual tela leva a qual**, quais ações abrem novas telas, quais ações abrem modal/bottom sheet e quais pontos restantes são apenas decisões de UX. As regras de negócio bloqueantes da Sprint 1 estão consolidadas.
 
 ---
 
@@ -25,40 +25,66 @@
 
 **Perfil/Configurações** não fica na bottom navigation. O acesso recomendado é pelo avatar/atalho no topo.
 
+### User Stories da Sprint 1 vigente
+
+`US01, US02, US03, US05, US06, US10, US12, US13, US14, US15, US19, US24, US29, US37, US40, US44, US45 e US60`.
+
 ---
 
 # 2. Fluxo de entrada e autenticação
 
-## 2.1 Boas-vindas
+## 2.1 Boas-vindas / conta
 
 **Tela:** `14_auth_boas_vindas.png`
 
+**US principal:** US60 — Cadastro/autenticação de conta.
+
+**Rastreabilidade:** a US60 foi adicionada posteriormente e não possui RF original explícito entre RF01–RF71. Está vinculada às RN-ID-01, RN-ID-02, RN-ID-03 e RN-ID-04 e impacta RF11, RF16 e RF48.
+
 Fluxo:
 
-- **Entrar** ↳ abre **Login** em bottom sheet.
+- **Entrar** ↳ abre **Login** em bottom sheet;
 - **Criar conta** ↳ abre **Cadastro de usuário** em bottom sheet.
 
 ### Login
 
 **Estado complementar:** `tela-login.png`
 
-- Preenchimento de credenciais → autenticar.
-- Autenticação concluída → fluxo pós-login.
+Campos mínimos:
+- e-mail;
+- senha.
+
+Regras:
+- e-mail é o identificador da conta;
+- autenticação da conta é diferente do bloqueio local por PIN/biometria.
+
+Fluxo:
+- preencher credenciais → autenticar;
+- conta com um perfil → perfil selecionado automaticamente → **Início**;
+- conta com mais de um perfil → **Seleção de perfil** → **Início**.
 
 ### Cadastro
 
 **Estado complementar:** `tela_criar_conta.png`
 
-- Preenchimento dos dados → criar conta.
-- Conta criada → fluxo pós-login.
+Campos obrigatórios:
+- nome;
+- e-mail;
+- senha.
 
-### Pós-login
+Regras:
+- e-mail será usado como login e deve ser único entre contas;
+- tentativa de cadastrar e-mail já existente deve ser recusada;
+- recuperação de acesso, alteração de credenciais e exclusão de conta ficam fora do escopo desta versão.
 
-**Regra existente de perfil:**
-- se houver mais de um perfil financeiro → selecionar perfil;
-- se houver somente um perfil → selecionar automaticamente.
+Após cadastro válido:
+1. criar conta;
+2. criar automaticamente o primeiro perfil usando inicialmente o nome da conta/usuário;
+3. perfil inicia sem dados financeiros, saldo `R$ 0` e moeda-base `BRL`;
+4. tornar esse perfil ativo;
+5. abrir **Início / Dashboard**.
 
-**Observação:** a US de cadastro/login foi adicionada posteriormente e deve ser mantida sincronizada no backlog oficial.
+O usuário poderá renomear o perfil e criar outros perfis quando a funcionalidade de múltiplos perfis for implementada.
 
 ---
 
@@ -147,7 +173,11 @@ Entrada principal:
 
 Ações/saídas:
 - **Salvar transação** → valida campos e registra;
-- se for despesa marcada como não essencial → antes de concluir ↳ **Reflexão antes da compra**;
+- campos obrigatórios no cadastro manual: tipo, valor, data, hora, descrição e categoria quando aplicável; a descrição é a identificação principal e não existe campo separado de título;
+- **Anotação** é um campo textual complementar e opcional, vinculado à transação conforme RF36/US02; pode registrar contexto adicional sem substituir a descrição;
+- despesa pode ser marcada explicitamente como **Contabilizar como gasto livre**; nesse caso pode permanecer sem categoria e consome a cota mensal de gastos livres;
+- essencialidade pode ser Essencial, Não essencial ou Não classificada;
+- se for despesa marcada como Não essencial → antes de concluir ↳ **Reflexão antes da compra**;
 - **Adicionar comprovante** → câmera/seleção de imagem;
 - ativar **recorrência** → **Configurar recorrência**;
 - ativar **lembrete de vencimento** → mesma configuração de recorrência/vencimento ou seção associada.
@@ -168,6 +198,11 @@ Entradas:
 - Dashboard → transação recente;
 - opcionalmente após criar/salvar uma transação.
 
+Conteúdo exibido:
+- dados principais da transação;
+- **Anotação**, quando preenchida, como informação complementar separada da descrição;
+- tags, método de pagamento, classificação, recibo e recorrência/lembrete quando aplicáveis.
+
 Saídas:
 - **Editar** → estado de edição;
 - **Reverter transação** ↳ modal de confirmação;
@@ -180,6 +215,7 @@ Saídas:
 
 Fluxo:
 - Detalhe → **Editar** ↔ a própria tela passa para estado editável, OU reutiliza o mesmo formulário da tela de cadastro já preenchido;
+- os campos complementares da US02, incluindo **Anotação**, devem ser carregados com o valor atual e permitir inclusão, alteração ou remoção;
 - ação principal muda para **Salvar alterações**;
 - cancelar → volta ao modo de leitura.
 
@@ -196,9 +232,9 @@ Para implementação, a opção 2 costuma reduzir duplicação de componentes.
 Fluxo:
 - Detalhe → **Reverter transação** ↳ confirmação;
 - cancelar → volta ao detalhe;
-- confirmar → remove a transação dos registros financeiros ativos, registra auditoria e atualiza cálculos.
+- confirmar → antes da remoção, registra snapshot integral do estado persistido da transação com tipo de operação e data/hora; depois remove a transação dos registros financeiros ativos e atualiza os cálculos.
 
-**Regra:** não criar transação inversa de estorno.
+**Regra:** não criar transação inversa de estorno e não oferecer restauração enquanto isso não existir como requisito.
 
 ---
 
@@ -259,6 +295,11 @@ Saídas:
 - **Planejado x realizado** → `09_planejamento_planejado_realizado.png`;
 - **Metas** → `10_metas_lista.png`.
 
+**Regra de estado do orçamento por categoria:**
+- abaixo de 75% → normal;
+- de 75% até 100% → próximo do limite;
+- acima de 100% → limite excedido.
+
 ---
 
 ## 6.3 Limites e alertas
@@ -276,9 +317,11 @@ Fluxo:
 - selecionar canal Push/E-mail;
 - **Salvar configurações** → retorna ao Planejamento/Orçamento.
 
-**Regra confirmada:** limite diário reinicia diariamente.
-
-**Pendente:** período padrão de certos limites por categoria ainda precisa de decisão formal.
+**Regras confirmadas:**
+- limite diário reinicia diariamente;
+- limites/regras de categoria são dinâmicos e definidos pelo usuário;
+- cada regra deve registrar explicitamente valor/percentual, período e, quando aplicável, base de renda;
+- para RF54, usuário pode escolher Push, E-mail ou ambos.
 
 ---
 
@@ -297,7 +340,11 @@ Fluxo:
 - alterar valor da cota;
 - **Salvar cota** → retorna ao Planejamento.
 
-**Pendente importante:** ainda precisa ser formalizado como uma transação passa a consumir a cota de gastos livres. Recomendação de UX: ação explícita no cadastro da despesa, evitando confundir “sem categoria” com “gasto livre intencional”.
+**Regra confirmada:**
+- uma despesa só consome a cota quando o usuário marca explicitamente **Contabilizar como gasto livre** no cadastro/edição;
+- ela pode permanecer sem categoria;
+- continua sendo despesa normal para saldo e totais gerais;
+- despesa sem categoria que não foi marcada como gasto livre não consome essa cota.
 
 ---
 
@@ -375,7 +422,11 @@ Fluxo:
 - informar valor/data;
 - confirmar → atualiza progresso da meta e retorna ao detalhe.
 
-**Regra:** aportes pertencem ao módulo de metas e não são automaticamente despesas/transações comuns.
+**Regras:**
+- aportes pertencem ao módulo de metas e não são automaticamente despesas/transações comuns;
+- sugestão diária/semanal = valor restante ÷ dias/semanas restantes;
+- se a data-limite expirar sem atingir a meta, informar que não foi cumprida e o valor faltante;
+- o usuário pode alterar a data-limite para continuar, e a sugestão é recalculada.
 
 ---
 
@@ -395,9 +446,13 @@ Saídas:
 - **Colocar em reflexão** → envia item para lista/período de espera;
 - **Voltar e revisar** → retorna ao cadastro da transação.
 
-**Pendente:** duração padrão do período de reflexão e possibilidade de alteração pelo usuário.
+**Regras confirmadas:**
+- somente despesa explicitamente classificada como Não essencial dispara esse fluxo;
+- duração padrão do período de reflexão = 48 horas;
+- usuário pode alterar a duração;
+- a opção de compra permanece indisponível até o horário de liberação.
 
-**Pendente visual:** uma tela/lista de itens em reflexão ainda não foi finalizada.
+**Pendente apenas de UX:** uma tela/lista de itens em reflexão ainda não foi finalizada.
 
 ---
 
@@ -422,9 +477,10 @@ Fluxo:
 Depois, ao salvar a transação:
 - ocorrência futura aparece como prevista;
 - antes da data prevista não afeta saldo atual;
-- na data configurada a ocorrência passa a compor o extrato/cálculos.
-
-**Pendente:** definir se editar/cancelar recorrência altera somente ocorrências futuras.
+- cada recorrência gera uma ocorrência uma única vez na data configurada;
+- na data configurada a ocorrência passa a compor o extrato/cálculos;
+- editar ou cancelar a recorrência afeta somente ocorrências futuras;
+- ocorrências já efetivadas permanecem no histórico.
 
 ---
 
@@ -485,12 +541,12 @@ Saída:
 
 ```text
 ABERTURA
-└── Boas-vindas
-    ├── Entrar ↳ Login
-    └── Criar conta ↳ Cadastro
-        └── Pós-login
-            ├── [múltiplos perfis] → Seleção de perfil
-            └── [perfil único] → Início
+└── Boas-vindas (US60)
+    ├── Entrar ↳ Login por e-mail + senha
+    │   ├── [múltiplos perfis] → Seleção de perfil → Início
+    │   └── [perfil único] → Início
+    └── Criar conta ↳ Nome + e-mail único + senha
+        └── Criar primeiro perfil automaticamente (BRL / R$0) → Início
 
 BLOQUEIO LOCAL
 └── Biometria ↔ PIN
@@ -512,6 +568,7 @@ BOTTOM NAV
 │
 ├── +
 │   └── Nova transação
+│       ├── [gasto livre] → marcar explicitamente para consumir cota
 │       ├── Recorrência → Configurar recorrência
 │       ├── Comprovante → Câmera/arquivo
 │       └── Compra não essencial → Reflexão
@@ -538,16 +595,18 @@ PERFIL / CONFIGURAÇÕES
 
 ---
 
-# 13. Decisões ainda pendentes que afetam navegação
+# 13. Decisões de UX ainda pendentes
+
+As regras de negócio da Sprint 1 estão consolidadas. Permanecem somente decisões de experiência/navegação que podem ser fechadas durante o refinamento da respectiva US:
 
 1. **Edição de transação:** confirmar se será inline no detalhe ou reutilização do formulário de cadastro em modo edição.
 2. **Após criar transação:** confirmar se retorna para lista ou abre detalhe; recomendação atual: detalhe.
 3. **Após criar meta:** confirmar retorno; recomendação atual: detalhe da meta criada.
-4. **Gastos livres:** definir explicitamente como uma despesa é marcada para consumir a cota.
-5. **Itens em reflexão:** falta definir tela/lista de espera e acesso até ela.
-6. **Perfil/Configurações:** precisa de tela-hub formal para concentrar Segurança e futuras configurações.
-7. **Recorrência:** confirmar se editar/cancelar afeta apenas ocorrências futuras.
-8. **Cadastro/login:** sincronizar a nova US com backlog oficial e critérios de aceitação.
+4. **Itens em reflexão:** definir a tela/lista de espera e o ponto de acesso até ela.
+5. **Perfil/Configurações:** definir a tela-hub formal para concentrar Segurança e futuras configurações.
+6. **Subcategorias:** finalizar a apresentação visual do modal/tela de criar/editar subcategoria.
+
+Nenhum desses itens deve ser transformado em nova regra de negócio sem necessidade.
 
 ---
 
